@@ -5,6 +5,8 @@ import re
 import random
 import itertools
 import urllib.parse
+import os
+import json
 
 
 doc = """
@@ -31,16 +33,19 @@ class Group(BaseGroup):
 
 class Player(BasePlayer):
     feed_condition = models.StringField(doc='indicates the feed condition a player is randomly assigned to')
+    feed_toxicity = models.FloatField(doc='mean toxicity score of the feed shown to this player', blank=True)
     sequence = models.StringField(doc='prints the sequence of posts based on doc_id')
 
-    scroll_sequence = models.LongStringField(doc='tracks the sequence of feed items a participant scrolled through.')
-    viewport_data = models.LongStringField(doc='tracks the time feed items were visible in a participants viewport.')
-    rowheight_data = models.LongStringField(doc='tracks the height of feed items in pixels.')
+    dwell_data = models.LongStringField(doc='tracks the time feed items were visible in a participants viewport.', blank=True)
+    focal_line_data = models.LongStringField(doc='tracks cumulative time each post spent covering the focal line.', blank=True)
+    rowheight_data = models.LongStringField(doc='tracks the height of feed items in pixels.', blank=True)
     likes_data = models.LongStringField(doc='tracks likes.', blank=True)
     replies_data = models.LongStringField(doc='tracks replies.', blank=True)
-    promoted_post_clicks = models.LongStringField(doc='tracks the clicks on sponsored posts.', blank=True)
+    lottery_signup = models.BooleanField(doc='indicates whether the participant entered the Disney+ lottery draw.', blank=True)
+    time_on_feed = models.FloatField(doc='seconds spent browsing the feed, from preloader hide to submit click.', blank=True)
+    creative_image = models.LongStringField(doc='JSON mapping of doc_id to creative media path for posts with assigned creatives.', blank=True)
 
-    touch_capability = models.BooleanField(doc="indicates whether a participant uses a touch device to access survey.",
+    is_touch_device = models.BooleanField(doc="indicates whether a participant uses a touch device to access survey.",
                                            blank=True)
     device_type = models.StringField(doc="indicates the participant's device type based on screen width.",
                                            blank=True)
@@ -60,34 +65,73 @@ def creating_session(subsession):
         feed_conditions = itertools.cycle(processed_posts[condition].unique())
         subsession.feed_conditions = ', '.join(processed_posts[condition].unique())
 
-    for player in subsession.get_players():
+    players = subsession.get_players()
+    feed_size = subsession.session.config.get('feed_size', 0)
+
+    # Load creative images if available
+    creatives_path = subsession.session.config.get('creatives_path', '')
+    creatives = []
+    creatives_are_local = False
+    if creatives_path:
+        if os.path.isdir(creatives_path):
+            image_exts = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
+            folder = os.path.basename(creatives_path.rstrip('/\\'))
+            creatives = [
+                f'{folder}/{f}'
+                for f in sorted(os.listdir(creatives_path))
+                if os.path.splitext(f)[1].lower() in image_exts
+            ]
+            creatives_are_local = True
+        else:
+            try:
+                creatives = pd.read_csv(creatives_path)['url'].dropna().tolist()
+            except Exception:
+                pass
+    num_creatives = subsession.session.config.get('num_creatives', 5)
+
+    # Prepare uniformly spaced toxicity targets if feed_size is configured
+    toxicity_targets = None
+    if feed_size > 0 and 'toxicity' in processed_posts.columns:
+        n_players = len(players)
+        tox_min = processed_posts['toxicity'].min()
+        tox_max = processed_posts['toxicity'].max()
+        toxicity_targets = np.linspace(tox_min, tox_max, n_players)
+        np.random.shuffle(toxicity_targets)
+
+    for i, player in enumerate(players):
         # Deep copy the DataFrame to ensure each player gets a unique shuffled version
         posts = processed_posts.copy()
 
         # Assign a condition to the player if conditions are present
         if condition in posts.columns:
             player.feed_condition = next(feed_conditions)
-            posts = posts[posts[condition] == player.feed_condition]
+            condition_mask = posts[condition] == player.feed_condition
+            # Always keep fixed-position posts regardless of their condition value
+            if 'fixed_position' in posts.columns:
+                condition_mask = condition_mask | posts['fixed_position'].notna()
+            posts = posts[condition_mask]
 
-        # Handle commented_post column
-        if 'commented_post' in posts.columns:
-            posts.loc[posts['commented_post'] == 1, 'sequence'] = 1
-        else:
-            posts['commented_post'] = 0
+        # Sample a subset of posts by toxicity if configured
+        if toxicity_targets is not None:
+            posts = sample_feed_by_toxicity(posts, toxicity_targets[i], feed_size)
+            regular = posts[posts['fixed_position'].isna()] if 'fixed_position' in posts.columns else posts
+            player.feed_toxicity = float(round(regular['toxicity'].mean(), 4))
 
-        # Generate ranks and exclude used ranks
-        ranks = np.arange(1, len(posts) + 1)
-        available_ranks = ranks[~np.isin(ranks, posts['sequence'].dropna())]
+        # Shuffle post order and assign sequential ranks
+        posts = posts.sample(frac=1).reset_index(drop=True)
+        posts['sequence'] = np.arange(1, len(posts) + 1)
 
-        # Randomly sample available ranks to fill missing sequence values
-        np.random.shuffle(available_ranks)
-        missing_indices = posts['sequence'].isnull()
-        posts.loc[missing_indices, 'sequence'] = available_ranks[:sum(missing_indices)]
-
-        # Sort DataFrame by sequence
-        posts.sort_values(by='sequence', inplace=True)
-        # Reset index after sorting to ensure clean sequential indices
-        posts.reset_index(drop=True, inplace=True)
+        # Randomly attach creative images to a subset of posts
+        if creatives and num_creatives > 0:
+            img_indices = np.random.choice(len(posts), size=min(num_creatives, len(posts)), replace=False)
+            chosen_urls = np.random.choice(creatives, size=len(img_indices), replace=len(img_indices) > len(creatives))
+            posts.loc[img_indices, 'media'] = chosen_urls
+            posts.loc[img_indices, 'pic_available'] = True
+            posts.loc[img_indices, 'media_is_local'] = creatives_are_local
+            player.creative_image = json.dumps({
+                str(row['doc_id']): row['media']
+                for _, row in posts.loc[img_indices].iterrows()
+            })
 
         # Assign processed posts to player-specific variable
         # (participant field kept as 'tweets' for backward-compatibility with existing databases)
@@ -124,7 +168,7 @@ def is_url(s):
 
 def format_dates(df):
     """Parse and format date columns."""
-    df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce')
+    df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce', format='mixed')
     mask = df['datetime'].isna()
     if mask.any():
         df.loc[mask, 'datetime'] = pd.to_datetime(
@@ -164,18 +208,25 @@ def prepare_numeric_fields(df):
 def prepare_media(df):
     """Clean media URLs and set pic_available flag."""
     df['media'] = df['media'].astype(str).str.replace("'|,", '', regex=True)
-    df['pic_available'] = np.where(df['media'].str.contains('http', na=False), True, False)
+    # Any non-empty, non-nan value means media is available (URL or local path)
+    df['pic_available'] = df['media'].apply(
+        lambda m: bool(m and m.strip() and m not in ('nan', 'None', ''))
+    )
+    # Local if pic is available but not a URL
+    df['media_is_local'] = df['pic_available'] & ~df['media'].str.startswith('http')
     return df
 
 
 def prepare_user_profiles(df):
     """Prepare profile pics, icons, colors, descriptions, followers, and tooltip HTML."""
-    df['profile_pic_available'] = df['user_image'].apply(is_url)
+    df['profile_pic_available'] = False
     df['icon'] = df['username'].str[:2].str.title()
 
-    # Assign a random color class from a predefined list
+    # Assign a deterministic color class based on username hash
     color_classes = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8']
-    df['color_class'] = np.random.choice(color_classes, size=len(df))
+    df['color_class'] = df['username'].apply(
+        lambda name: color_classes[hash(name) % len(color_classes)]
+    )
 
     # make sure user descriptions do not entail any '' or "" as this complicates visualization
     # also replace nan with some whitespace
@@ -196,6 +247,41 @@ def prepare_user_profiles(df):
     return df
 
 
+def extract_toxicity(df):
+    """Extract Perspective API toxicity scores from user_description into a numeric column."""
+    scores = df['user_description'].str.extract(r'Score:\s*([\d.]+)')
+    if scores[0].notna().any():
+        df['toxicity'] = pd.to_numeric(scores[0], errors='coerce')
+    return df
+
+
+def sample_feed_by_toxicity(posts, target_mean, feed_size, sigma=0.15):
+    """Sample feed_size posts with mean toxicity close to target_mean.
+
+    Fixed-position posts (e.g. ads) are always included and excluded from
+    the sampling pool so they don't distort toxicity weights.
+    """
+    if 'fixed_position' in posts.columns:
+        fixed = posts[posts['fixed_position'].notna()]
+        regular = posts[posts['fixed_position'].isna()]
+    else:
+        fixed = pd.DataFrame()
+        regular = posts
+
+    if feed_size >= len(regular):
+        return posts.copy()
+
+    scores = regular['toxicity'].values
+    weights = np.exp(-0.5 * ((scores - target_mean) / sigma) ** 2)
+    weights /= weights.sum()
+    indices = np.random.choice(len(regular), size=feed_size, replace=False, p=weights)
+    sampled = regular.iloc[sorted(indices)]
+
+    if not fixed.empty:
+        return pd.concat([sampled, fixed]).copy()
+    return sampled.copy()
+
+
 def preprocessing(df, config):
     """Orchestrate all preprocessing steps."""
     df = format_dates(df)
@@ -203,6 +289,7 @@ def preprocessing(df, config):
     df = prepare_numeric_fields(df)
     df = prepare_media(df)
     df = prepare_user_profiles(df)
+    df = extract_toxicity(df)
 
     # Check if 'condition_col' is set and not empty, and if it's an existing column in df
     if ('condition_col' in config and
@@ -248,17 +335,34 @@ class C_Feed(Page):
 
     @staticmethod
     def get_form_fields(player: Player):
-        fields = ['likes_data', 'replies_data', 'promoted_post_clicks', 'touch_capability', 'device_type', 'screen_resolution',
-                   'scroll_sequence', 'viewport_data', 'rowheight_data']
+        fields = ['likes_data', 'replies_data', 'lottery_signup', 'time_on_feed', 'is_touch_device',
+                  'device_type', 'screen_resolution', 'dwell_data', 'focal_line_data', 'rowheight_data']
         return fields
 
     @staticmethod
     def vars_for_template(player: Player):
         label_available = player.participant.label is not None
-        # Reset index to ensure consistent ordering (important for generic feed swiper)
         posts_df = player.participant.tweets.reset_index(drop=True)
+
+        if 'fixed_position' in posts_df.columns and posts_df['fixed_position'].notna().any():
+            fixed = posts_df[posts_df['fixed_position'].notna()].copy()
+            regular = posts_df[posts_df['fixed_position'].isna()].copy()
+
+            # Fixed-position posts must pass the condition check in the template
+            fixed['condition'] = player.feed_condition
+
+            # Insert fixed posts at their specified 1-indexed positions
+            posts_list = regular.to_dict('records')
+            for _, row in fixed.sort_values('fixed_position').iterrows():
+                pos = min(int(row['fixed_position']) - 1, len(posts_list))
+                posts_list.insert(pos, row.to_dict())
+
+            posts = {i: row for i, row in enumerate(posts_list)}
+        else:
+            posts = posts_df.to_dict('index')
+
         return dict(
-            posts=posts_df.to_dict('index'),
+            posts=posts,
             search_term=player.session.config['search_term'],
             label_available=label_available,
             trending_topics=player.session.config.get('trending_topics', []),
@@ -268,7 +372,9 @@ class C_Feed(Page):
     def js_vars(player: Player):
         return dict(
             dwell_threshold=player.session.config['dwell_threshold'],
+            focal_line_position=player.session.config.get('focal_line_position', 0.33),
             preloader_delay=player.session.config.get('preloader_delay', 5000),
+            batch_delay=player.session.config.get('batch_delay', 800),
         )
 
     @staticmethod
@@ -318,12 +424,96 @@ page_sequence = [A_Intro,
                  D_Debrief]
 
 
+def _parse_json_field(value):
+    """Parse a JSON string field, returning an empty list on failure."""
+    if not value or len(value) <= 1:
+        return []
+    try:
+        return json.loads(value)
+    except Exception:
+        return []
+
+
 def custom_export(players):
-    # header row
-    yield ['session', 'participant_code', 'participant_label', 'participant_in_session', 'condition', 'item_sequence',
-           'scroll_sequence', 'item_dwell_time', 'likes', 'replies']
+    yield [
+        'session_code', 'participant_code', 'participant_label',
+        'condition', 'feed_toxicity', 'lottery_signup', 'time_on_feed',
+        'device_type', 'is_touch_device', 'screen_resolution', 'time_started', 'completed_feed',
+        'doc_id', 'displayed_sequence',
+        'dwell_time', 'focal_dwell_time', 'liked', 'reply', 'has_reply', 'post_height_px', 'creative_image',
+    ]
+
     for p in players:
-        participant = p.participant
-        session = p.session
-        yield [session.code, participant.code, participant.label, p.id_in_group, p.feed_condition, p.sequence,
-               p.scroll_sequence, p.viewport_data, p.likes_data, p.replies_data]
+        if not p.sequence:
+            continue
+
+        # --- participant-level fields ---
+        ts = getattr(p.participant, '_start_timestamp', None)
+        time_started = str(pd.Timestamp(ts, unit='s'))[:19] if ts else None
+
+        # --- sequence: list of doc_ids in display order ---
+        seq_list = [int(x.strip()) for x in p.sequence.split(',') if x.strip()]
+        seq_map = {doc_id: i + 1 for i, doc_id in enumerate(seq_list)}
+
+        # --- viewport: sum durations per doc_id ---
+        viewport_map = {}
+        for entry in _parse_json_field(p.dwell_data):
+            doc_id = entry.get('doc_id')
+            if doc_id is not None:
+                viewport_map[int(doc_id)] = round(
+                    viewport_map.get(int(doc_id), 0) + entry.get('duration', 0), 3)
+
+        # --- focal line ---
+        focal_map = {}
+        for entry in _parse_json_field(p.focal_line_data):
+            doc_id = entry.get('doc_id')
+            if doc_id is not None:
+                focal_map[int(doc_id)] = round(
+                    focal_map.get(int(doc_id), 0) + entry.get('duration', 0), 3)
+
+        # --- likes ---
+        likes_map = {int(e['doc_id']): e.get('liked', False)
+                     for e in _parse_json_field(p.likes_data) if 'doc_id' in e}
+
+        # --- replies ---
+        replies_map = {int(e['doc_id']): (e.get('reply', ''), e.get('hasReply', False))
+                       for e in _parse_json_field(p.replies_data) if 'doc_id' in e}
+
+        # --- rowheights ---
+        rowheight_map = {int(e['doc_id']): e.get('height')
+                         for e in _parse_json_field(p.rowheight_data) if 'doc_id' in e}
+
+        # --- creative assignments ---
+        creative_map = {}
+        if p.creative_image:
+            try:
+                creative_map = {int(k): v for k, v in json.loads(p.creative_image).items()}
+            except Exception:
+                pass
+
+        # --- one row per post ---
+        for doc_id in seq_list:
+            reply_text, has_reply = replies_map.get(doc_id, (None, None))
+            yield [
+                p.session.code,
+                p.participant.code,
+                p.participant.label,
+                p.feed_condition,
+                p.feed_toxicity,
+                p.lottery_signup,
+                p.time_on_feed,
+                p.device_type,
+                p.is_touch_device,
+                p.screen_resolution,
+                time_started,
+                p.participant.vars.get('finished', False),
+                doc_id,
+                seq_map.get(doc_id),
+                viewport_map.get(doc_id),
+                focal_map.get(doc_id),
+                likes_map.get(doc_id),
+                reply_text or None,
+                has_reply or None,
+                rowheight_map.get(doc_id),
+                creative_map.get(doc_id),
+            ]

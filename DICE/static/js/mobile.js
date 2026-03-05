@@ -5,7 +5,7 @@ function isTouchDevice() {
 }
 
 // Set the hidden input field's value to 'true' or 'false'
-document.getElementById('touch_capability').value = isTouchDevice();
+document.getElementById('is_touch_device').value = isTouchDevice();
 
 function getDeviceTypeByScreen() {
     if (window.matchMedia("(max-width: 767px)").matches) {

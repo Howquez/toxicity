@@ -60,6 +60,22 @@ document.addEventListener("DOMContentLoaded", function() {
         // Enable scrolling
         document.body.style.overflow = "";
 
+        // Start feed timer
+        const feedStartTime = Date.now();
+        document.querySelectorAll('button[type="submit"]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const elapsed = ((Date.now() - feedStartTime) / 1000).toFixed(3);
+                const field = document.getElementById('time_on_feed');
+                if (field) field.value = elapsed;
+            }, { once: true });
+        });
+
+        // Allow voluntary exit from the start
+        const submitBtn = document.getElementById('submitButtonTop');
+        submitBtn.style.display = 'inline-block';
+        submitBtn.classList.add('btn-appear');
+        submitBtn.addEventListener('animationend', () => submitBtn.classList.remove('btn-appear'), { once: true });
+
         console.log("fully loaded");
     }, js_vars.preloader_delay);
 });

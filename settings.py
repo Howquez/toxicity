@@ -22,15 +22,20 @@ SESSION_CONFIG_DEFAULTS = dict(
     study_name = 'A study about social media',
     survey_link = 'https://unisg.qualtrics.com/jfe/form/SV_0DnMoLpM0VxjhrM',
     dwell_threshold = 75,
+    focal_line_position = 0.33,  # vertical position of focal line as share of viewport height (0 = top, 1 = bottom)
     url_param = 'PROLIFIC_PID',
     completion_code = 'ABCDEF',
-    data_path = "https://raw.githubusercontent.com/DICE-app/sample-feeds/refs/heads/main/feeds/sample_2x2_brand_safety.csv",
-    delimiter=';',
+    data_path = "DICE/static/data/toxic_movie_reactions.csv", # "DICE/static/data/sample_tweets.csv",
+    delimiter=',',
+    feed_size = 25,
+    creatives_path = "DICE/static/creatives",
+    num_creatives = 8,
     sort_by='datetime',
     condition_col='condition',
-    search_term = "Brazil",
+    search_term = "Fire and Ash",
     preloader_delay = 5000,   # milliseconds — loading screen duration
     redirect_delay = 3000,    # milliseconds — auto-redirect delay
+    batch_delay = 800,        # milliseconds — simulated network delay between post batches
     trending_topics=[
         {'label': 'WeekDayMotivation', 'count': '12K Posts'},
         {'label': 'Netflix', 'count': '36K Posts'},

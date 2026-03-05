@@ -1,17 +1,12 @@
 {{ if i.condition == player.feed_condition }}
 {{ if i.sponsored }}
-<tr id="{{i.doc_id}}" style="background-color: #E5E4E2;" onmouseover="sequence('i' + {{i.doc_id}});" ontouchstart="sequence('i' + {{i.doc_id}});">
+<tr id="{{i.doc_id}}" style="background-color: #E5E4E2;">
     <td>
         <div class="post d-flex align-items-start p-2">
             <!-- Profile picture -->
             <div class="profile-pic me-2">
-                <img src="{{i.user_image}}" class="rounded-circle" style="width: 48px; height: 48px; object-fit: cover;"
-                     alt="Profile picture of {{i.username}}."
-                     data-bs-toggle="tooltip"
-                     data-bs-placement="bottom"
-                     data-bs-html="true"
-                     data-bs-custom-class="custom-tooltip"
-                     title="{{i.tooltip_html}}">
+                <img src="https://s.yimg.com/ny/api/res/1.2/cNR53AXUZ_fh4h5zLv5aCg--/YXBwaWQ9aGlnaGxhbmRlcjt3PTEyNDI7aD0xMjQyO2NmPXdlYnA-/https://media.zenfs.com/en/evening_standard_239/be0710aaaf5abfdcfe63e97dda34ea9a" class="rounded-circle" style="width: 48px; height: 48px; object-fit: cover;"
+                     alt="Profile picture of {{i.username}}.">
             </div>
 
             <!-- Post content -->
@@ -19,11 +14,7 @@
                 <!-- Post header -->
                 <div class="d-flex justify-content-between"
                      style="cursor: pointer;"
-                     data-bs-toggle="tooltip"
-                     data-bs-placement="bottom"
-                     data-bs-html="true"
-                     data-bs-custom-class="custom-tooltip"
-                     title="{{i.tooltip_html}}">
+>
                     <div>
                         <small><strong>{{i.username}}</strong></small>
                         <small class="text-muted">@{{i.handle}}</small>
@@ -36,12 +27,14 @@
                 <div class="spons-post">
                     <!-- Post text -->
                     <p class="my-1" id="post_text_{{i.doc_id}}" style="text-decoration: none; cursor: pointer;">{{i.text}}</p>
-                    <!-- Post image if available -->
-                    {{ if i.pic_available == True }}
-                    <a href="{{i.target}}" target="_blank" style="text-decoration: none; cursor: pointer;">
-                        <img src="{{i.media}}" class="img-fluid rounded-4 mt-2" alt="{{i.alt_text}}">
-                    </a>
-                    {{ endif }}
+                    <!-- Post image + CTA tied together -->
+                    <div class="mt-2 rounded-4 overflow-hidden">
+                        <img src="{{  static 'ads/bundle-ad.png' }}" class="d-block w-100" alt="{{i.alt_text}}">
+                        <button type="button" id="lotteryEnterBtn" class="btn w-100 py-5 fw-semibold rounded-0 lottery-cta"
+                                style="background: #FF6D00; color: white; border: none; font-size: 1rem;">
+                            Click to enter and win a $35 voucher.
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Post actions -->
@@ -71,7 +64,7 @@
     </td>
 </tr>
 {{ else }}
-<tr id="{{i.doc_id}}" onmouseover="sequence('i' + {{i.doc_id}});" ontouchstart="sequence('i' + {{i.doc_id}});">
+<tr id="{{i.doc_id}}">
     <td>
         <div class="post d-flex align-items-start p-2">
             <!-- Profile picture -->
@@ -79,11 +72,7 @@
             <div class="profile-pic me-2">
                 <img src="{{i.user_image}}" class="rounded-circle" style="width: 48px; height: 48px; object-fit: cover;"
                      alt="Profile picture of {{i.username}}."
-                     data-bs-toggle="tooltip"
-                     data-bs-placement="bottom"
-                     data-bs-html="true"
-                     data-bs-custom-class="custom-tooltip"
-                     title="{{i.tooltip_html}}">
+>
             </div>
             {{ else }}
             <div class="me-2 poster {{ i.color_class }}" style="width: 48px; height: 48px;">
@@ -96,11 +85,7 @@
                 <!-- Post header -->
                 <div class="d-flex justify-content-between"
                      style="cursor: pointer;"
-                     data-bs-toggle="tooltip"
-                     data-bs-placement="bottom"
-                     data-bs-html="true"
-                     data-bs-custom-class="custom-tooltip"
-                     title="{{i.tooltip_html}}">
+>
                     <div>
                         <small><strong>{{i.username}}</strong></small>
                         <small class="text-muted">@{{i.handle}}</small>
@@ -115,7 +100,11 @@
 
                 <!-- Post image if available -->
                 {{ if i.pic_available == True }}
-                <img src="{{i.media}}" class="img-fluid rounded-4 mt-2" alt="{{i.alt_text}}">
+                {{ if i.media_is_local }}
+                <img src="{{ static i.media }}" class="img-fluid w-100 rounded-4 mt-2" alt="{{i.alt_text}}">
+                {{ else }}
+                <img src="{{i.media}}" class="img-fluid w-100 rounded-4 mt-2" alt="{{i.alt_text}}">
+                {{ endif }}
                 {{ endif }}
 
                 <!-- Post actions -->

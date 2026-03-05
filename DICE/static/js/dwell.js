@@ -1,32 +1,32 @@
 let dwell_threshold = js_vars.dwell_threshold / 100 || 0.5
 
-// Array to store row visibility duration data
+// Array to store row visibility duration data (preserves full temporal sequence)
 var rowVisibilityData = [];
 
-// Object to store information about currently visible rows
+// Start timestamps for currently visible rows: {doc_id: Date.now()}
 var visibleRows = {};
 
-// Variable to track if the page is currently visible
+// Tracks which rows are currently intersecting (independent of pause state)
+var currentlyIntersecting = {};
+
 var isPageVisible = true;
 
-// Function to handle when a row becomes visible or hidden
 function handleRowVisibility(entries, observer) {
-    if (!isPageVisible) return; // Don't process if page is not visible
+    if (!isPageVisible) return;
 
     const currentTime = Date.now();
     entries.forEach((entry) => {
         const row = entry.target;
         const index = parseInt(row.id);
-
-        if (isNaN(index)) return; // Skip rows without valid IDs
+        if (isNaN(index)) return;
 
         if (entry.isIntersecting) {
-            // Row is visible
+            currentlyIntersecting[index] = true;
             if (!visibleRows[index]) {
                 visibleRows[index] = currentTime;
             }
         } else {
-            // Row is not visible
+            delete currentlyIntersecting[index];
             if (visibleRows[index]) {
                 const duration = (currentTime - visibleRows[index]) / 1000;
                 rowVisibilityData.push({ doc_id: index, duration: Number(duration.toFixed(3)) });
@@ -38,7 +38,7 @@ function handleRowVisibility(entries, observer) {
     updateViewportData();
 }
 
-// Function to update the dwell time for visible rows
+// Finalize dwell times for all currently visible rows
 function updateVisibleRowsDwellTime() {
     const currentTime = Date.now();
     Object.keys(visibleRows).forEach((index) => {
@@ -49,27 +49,47 @@ function updateVisibleRowsDwellTime() {
     updateViewportData();
 }
 
-function updateViewportData() {
-    document.getElementById('viewport_data').value = JSON.stringify(rowVisibilityData);
+// Append duration=0 for any post that never entered the viewport,
+// so every post always has at least one entry in the output.
+function finalizeMissingPosts() {
+    const seenIds = new Set(rowVisibilityData.map(e => e.doc_id));
+    document.querySelectorAll('tr[id], div.insta-post[id]').forEach(row => {
+        const index = parseInt(row.id);
+        if (!isNaN(index) && !seenIds.has(index)) {
+            rowVisibilityData.push({ doc_id: index, duration: 0 });
+        }
+    });
 }
 
-// Function to handle page visibility changes
+function updateViewportData() {
+    document.getElementById('dwell_data').value = JSON.stringify(rowVisibilityData);
+}
+
+// Pause dwell tracking (e.g. during simulated network delay or tab switch)
+function pauseDwellTracking() {
+    if (!isPageVisible) return;
+    isPageVisible = false;
+    updateVisibleRowsDwellTime();
+}
+
+// Resume dwell tracking, restarting timers for posts still in the viewport
+function resumeDwellTracking() {
+    if (isPageVisible) return;
+    isPageVisible = true;
+    const currentTime = Date.now();
+    Object.keys(currentlyIntersecting).forEach(index => {
+        visibleRows[index] = currentTime;
+    });
+}
+
 function handleVisibilityChange() {
     if (document.hidden) {
-        isPageVisible = false;
-        // Page is now hidden, update dwell times
-        updateVisibleRowsDwellTime();
+        pauseDwellTracking();
     } else {
-        isPageVisible = true;
-        // Page is visible again, reset start times for visible rows
-        const currentTime = Date.now();
-        Object.keys(visibleRows).forEach(index => {
-            visibleRows[index] = currentTime;
-        });
+        resumeDwellTracking();
     }
 }
 
-// Function to initialize the IntersectionObserver
 function initializeObserver() {
     const observer = new IntersectionObserver(handleRowVisibility, {
         root: null,
@@ -77,40 +97,35 @@ function initializeObserver() {
         threshold: dwell_threshold,
     });
 
-    // Support both table rows (posts) and divs (Instagram, etc.)
     document.querySelectorAll('tr[id], div.insta-post[id]').forEach(row => observer.observe(row));
     console.log('Visibility tracking initialized');
-
-    // Add event listener for page visibility changes
     document.addEventListener('visibilitychange', handleVisibilityChange);
 }
 
-// Function to handle submit button clicks
 function handleSubmit(event) {
-    updateVisibleRowsDwellTime();
+    updateVisibleRowsDwellTime(); // Finalize any currently visible posts
+    finalizeMissingPosts();       // Pad unseen posts with duration=0
     console.log('Submit button clicked:', event.target.id);
 }
 
-// Wait for both window load and pre-loader completion
 window.addEventListener('load', function() {
-    // Check if pre-loader is still active
     if (document.getElementById('loadingScreen').classList.contains('d-none')) {
         initializeObserver();
     } else {
-        // Wait for pre-loader to finish
         const checkPreloader = setInterval(function() {
             if (document.getElementById('loadingScreen').classList.contains('d-none')) {
                 clearInterval(checkPreloader);
                 initializeObserver();
             }
-        }, 100); // Check every 100ms
+        }, 100);
     }
 
-    // Attach event listeners to all submit buttons
     document.querySelectorAll('button[type="submit"]').forEach(button => {
         button.addEventListener('click', handleSubmit);
     });
 });
 
-// Add an event listener for when the user is about to leave the page
-window.addEventListener('beforeunload', updateVisibleRowsDwellTime);
+window.addEventListener('beforeunload', function() {
+    updateVisibleRowsDwellTime();
+    finalizeMissingPosts();
+});
