@@ -1,0 +1,169 @@
+{{ if i.condition == player.feed_condition }}
+{{ if i.sponsored }}
+<tr id="{{i.doc_id}}" style="background-color: #E5E4E2;">
+    <td>
+        <div class="post d-flex align-items-start p-2">
+            <!-- Profile picture -->
+            <div class="profile-pic me-2">
+                <img src="https://pbs.twimg.com/profile_images/1484725155821756420/ZeclBrZI_400x400.png" class="rounded-circle" style="width: 48px; height: 48px; object-fit: cover;"
+                     alt="Profile picture of {{i.username}}.">
+            </div>
+
+            <!-- Post content -->
+            <div class="post-content promoted-content w-100" id="post_{{i.doc_id}}">
+                <!-- Post header -->
+                <div class="d-flex justify-content-between"
+                     style="cursor: pointer;"
+>
+                    <div>
+                        <small><strong>{{i.username}}</strong></small>
+                        <small class="text-muted">@{{i.handle}}</small>
+                        <small class="text-muted">&middot;</small>
+                        <small class="text-muted">Sponsored</small>
+                    </div>
+                </div>
+
+                <!-- Post Body -->
+                <div class="spons-post">
+                    <!-- Post text -->
+                    <p class="my-1" id="post_text_{{i.doc_id}}" style="text-decoration: none; cursor: pointer;">{{i.text}}</p>
+                    <!-- Post image + CTA tied together -->
+                    <div class="mt-2">
+                        <img src="{{  static 'ads/mms-ad.jpg' }}" class="d-block w-100" style="border-radius: 1rem 1rem 0 0;" alt="{{i.alt_text}}">
+                        <button type="button" id="lotteryEnterBtn" class="btn w-100 py-3 fw-semibold rounded-0 lottery-cta"
+                                style="background: #009A44; color: white; border: none; font-size: 1rem;">
+                            Click to enter and win a $35 voucher.
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Post actions -->
+                <div class="d-flex justify-content-between mt-2">
+                    <!-- Reply -->
+                    <div class="reply-button col" data-bs-toggle="modal" data-bs-target="#replyModal_{{i.doc_id}}" id="reply_button_{{i.doc_id}}">
+                        <span class="bi bi-chat text-secondary reply-icon" id="reply_icon_{{i.doc_id}}" style="cursor: pointer">️</span>
+                        <span class="reply-count text-secondary" id="reply_count_{{i.doc_id}}">{{i.replies}}</span>
+                    </div>
+                    <!-- Repost -->
+                    <div class="repost-button col">
+                        <span class="bi bi-arrow-repeat text-secondary repost-icon" style="cursor: pointer">️</span>
+                        <span class="repost-count text-secondary">{{i.reposts}}</span>
+                    </div>
+                    <!-- Like -->
+                    <div class="like-button col" id="like_button_{{i.doc_id}}">
+                        <span class="bi bi-heart text-secondary like-icon" style="cursor: pointer">️</span>
+                        <span class="like-count text-secondary">{{i.likes}}</span>
+                    </div>
+                    <!-- Share -->
+                    <div class="share-button col">
+                        <span class="bi bi-upload text-secondary share-icon" style="cursor: pointer">️</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </td>
+</tr>
+{{ else }}
+<tr id="{{i.doc_id}}">
+    <td>
+        <div class="post d-flex align-items-start p-2">
+            <!-- Profile picture -->
+            {{ if i.profile_pic_available }}
+            <div class="profile-pic me-2">
+                <img src="{{i.user_image}}" class="rounded-circle" style="width: 48px; height: 48px; object-fit: cover;"
+                     alt="Profile picture of {{i.username}}."
+>
+            </div>
+            {{ else }}
+            <div class="me-2 poster {{ i.color_class }}" style="width: 48px; height: 48px;">
+                {{ i.icon}}
+            </div>
+            {{ endif }}
+
+            <!-- Post content -->
+            <div class="post-content w-100" id="post_{{i.doc_id}}">
+                <!-- Post header -->
+                <div class="d-flex justify-content-between"
+                     style="cursor: pointer;"
+>
+                    <div>
+                        <small><strong>{{i.username}}</strong></small>
+                        <small class="text-muted">@{{i.handle}}</small>
+                        <small class="text-muted">&middot;</small>
+                        <small class="text-muted">{{i.date}}</small>
+                    </div>
+
+                </div>
+
+                <!-- Post text -->
+                <p class="my-1" id="post_text_{{i.doc_id}}">{{i.text}}</p>
+
+                <!-- Post image if available -->
+                {{ if i.pic_available == True }}
+                {{ if i.media_is_local }}
+                <img src="{{ static i.media }}" class="img-fluid w-100 rounded-4 mt-2" alt="{{i.alt_text}}">
+                {{ else }}
+                <img src="{{i.media}}" class="img-fluid w-100 rounded-4 mt-2" alt="{{i.alt_text}}">
+                {{ endif }}
+                {{ endif }}
+
+                <!-- Post actions -->
+                <div class="d-flex justify-content-between mt-2">
+                    <!-- Reply -->
+                    <div class="reply-button col" data-bs-toggle="modal" data-bs-target="#replyModal_{{i.doc_id}}" id="reply_button_{{i.doc_id}}">
+                        <span class="bi bi-chat text-secondary reply-icon" id="reply_icon_{{i.doc_id}}" style="cursor: pointer">️</span>
+                        <span class="reply-count text-secondary" id="reply_count_{{i.doc_id}}">{{i.replies}}</span>
+                    </div>
+                    <!-- Repost -->
+                    <div class="repost-button col">
+                        <span class="bi bi-arrow-repeat text-secondary repost-icon" style="cursor: pointer">️</span>
+                        <span class="repost-count text-secondary">{{i.reposts}}</span>
+                    </div>
+                    <!-- Like -->
+                    <div class="like-button col" id="like_button_{{i.doc_id}}">
+                        <span class="bi bi-heart text-secondary like-icon" style="cursor: pointer">️</span>
+                        <span class="like-count text-secondary">{{i.likes}}</span>
+                    </div>
+                    <!-- Share -->
+                    <div class="share-button col">
+                        <span class="bi bi-upload text-secondary share-icon" style="cursor: pointer">️</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </td>
+</tr>
+{{ endif }}
+
+<!-- Reply Modal -->
+<div class="modal fade reply-modal" id="replyModal_{{i.doc_id}}" tabindex="-1" aria-labelledby="replyModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="replying-post mb-5 ms-3 ps-3 border-start border-primary border-3 text-secondary"
+                     id="replying_post_{{i.doc_id}}"></div>
+                <div class="row text-secondary">
+                    <div class="col-2">
+                        <h1 class="text-end">
+                            <i class="bi bi-person-circle sticky-bottom" data-bs-toggle="popover"
+                               data-bs-content="You have been assigned the following ID: {{ participant.code }}. Please use it to identify yourself if you encounter any problems."></i>
+                        </h1>
+                    </div>
+                    <div class="col">
+                                    <textarea class="form-control border-light reply-field"
+                                              id="reply_to_item_{{i.doc_id}}" name="reply_to_item_{{i.doc_id}}"
+                                              rows="4" placeholder="Post your reply"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-primary w-25 rounded-5 reply-modal-button" id="reply_modal_button_{{i.doc_id}}"
+                        data-bs-dismiss="modal">Reply</button>
+            </div>
+        </div>
+    </div>
+</div>
+{{endif}}
