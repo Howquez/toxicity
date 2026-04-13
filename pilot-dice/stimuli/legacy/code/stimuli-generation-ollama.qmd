@@ -1,0 +1,221 @@
+---
+title: "Stimuli Generation (Open Source Models via Ollama)"
+author: "Hauke Roggenkamp"
+format: html
+editor: visual
+---
+
+## Overview
+
+This document generates tweet stimuli varying in civility/toxicity levels for research purposes using open-source models via Ollama for full reproducibility.
+
+## Setup
+
+**Note:** You may have to run `reticulate::py_install("missing-package's-name")` in R.
+
+**Prerequisites:** Install Ollama from [ollama.ai](https://ollama.ai) and pull your desired model:
+```bash
+ollama pull llama3.1:8b
+# or: ollama pull mistral:7b
+```
+
+```{python}
+#| label: setup
+
+import os
+import json
+import pandas as pd
+from pathlib import Path
+from dotenv import load_dotenv
+import random
+import requests
+
+# Load environment variables (if any)
+load_dotenv(Path(__file__).parent.parent / ".env" if "__file__" in dir() else "../.env")
+
+# Model configuration
+OLLAMA_MODEL = "llama3.1:8b"  # or "mistral:7b", "gemma:7b", etc.
+OLLAMA_URL = "http://localhost:11434/api/generate"
+
+# Generation parameters
+N_TWEETS_PER_LEVEL = 5  # 4 levels × N = total tweets
+SEED = 42
+```
+
+```{python}
+#| label: check-ollama
+
+# Verify Ollama is running
+try:
+    response = requests.get("http://localhost:11434/api/tags")
+    models = [m["name"] for m in response.json().get("models", [])]
+    print(f"Available models: {models}")
+    if OLLAMA_MODEL not in models and not any(OLLAMA_MODEL.split(":")[0] in m for m in models):
+        print(f"Warning: {OLLAMA_MODEL} not found. Run: ollama pull {OLLAMA_MODEL}")
+except requests.exceptions.ConnectionError:
+    print("Error: Ollama not running. Start it with: ollama serve")
+```
+
+## Toxicity Levels
+
+We define 4 levels of civility, from civil to highly toxic:
+
+```{python}
+#| label: toxicity-levels
+
+TOXICITY_LEVELS = {
+    1: {
+        "name": "civil",
+        "description": "Respectful, constructive disagreement. May express strong opinions but remains polite and focuses on ideas rather than attacking people."
+    },
+    2: {
+        "name": "mildly_uncivil",
+        "description": "Somewhat dismissive or condescending. Uses mild sarcasm, eye-rolling tone, or implies the other side is uninformed. No slurs or direct insults."
+    },
+    3: {
+        "name": "uncivil",
+        "description": "Hostile and aggressive. Uses insults, name-calling, or derogatory language toward groups or individuals. Clearly disrespectful but stops short of extreme content."
+    },
+    4: {
+        "name": "highly_toxic",
+        "description": "Extremely hostile, dehumanizing, or hateful. May include slurs, threats, or content that demeans entire groups. Clearly crosses boundaries of acceptable discourse."
+    }
+}
+
+# Topics to ensure variety
+TOPICS = [
+    "immigration policy",
+    "climate change",
+    "gun control",
+    "healthcare system",
+    "economic inequality",
+]
+```
+
+## Generation Functions
+
+```{python}
+#| label: generation-functions
+
+random.seed(SEED)
+
+def build_prompt(toxicity_level: int, topic: str) -> str:
+    """Build the prompt for generating a tweet at a specific toxicity level."""
+    level_info = TOXICITY_LEVELS[toxicity_level]
+
+    prompt = f"""Generate a realistic tweet (max 280 characters) about {topic}.
+
+The tweet should be at civility level: {level_info['name'].upper()}
+Description: {level_info['description']}
+
+Requirements:
+- Sound like a real person on Twitter/X
+- Be specific to the topic
+- Match the civility level exactly - not more or less toxic than specified
+- Do not include hashtags or @mentions
+- Output ONLY the tweet text, nothing else"""
+
+    return prompt
+
+
+def generate_tweet(toxicity_level: int, topic: str) -> str:
+    """Generate a single tweet using local Ollama model."""
+    prompt = build_prompt(toxicity_level, topic)
+
+    system_prompt = "You are helping generate realistic tweet stimuli for academic research on online discourse and civility."
+    full_prompt = f"{system_prompt}\n\n{prompt}"
+
+    response = requests.post(
+        OLLAMA_URL,
+        json={
+            "model": OLLAMA_MODEL,
+            "prompt": full_prompt,
+            "stream": False,
+            "options": {
+                "temperature": 0.9,
+                "seed": random.randint(0, 10000),
+                "num_predict": 100
+            }
+        }
+    )
+    return response.json()["response"].strip().strip('"')
+```
+
+## Generate Tweets
+
+```{python}
+#| label: generate-tweets
+#| output: false
+
+from tqdm import tqdm
+
+tweets = []
+
+for level in TOXICITY_LEVELS.keys():
+    for i in tqdm(range(N_TWEETS_PER_LEVEL), desc=f"Level {level}"):
+        topic = random.choice(TOPICS)
+
+        try:
+            text = generate_tweet(level, topic)
+            tweets.append({
+                "id": len(tweets) + 1,
+                "toxicity_level": level,
+                "toxicity_name": TOXICITY_LEVELS[level]["name"],
+                "topic": topic,
+                "text": text,
+                "backend": "ollama",
+                "model": OLLAMA_MODEL
+            })
+        except Exception as e:
+            print(f"Error generating tweet: {e}")
+            continue
+
+df = pd.DataFrame(tweets)
+print(f"Generated {len(df)} tweets")
+```
+
+## Preview Results
+
+```{python}
+#| label: preview
+
+# Show a few examples from each level
+for level in TOXICITY_LEVELS.keys():
+    print(f"\n{'='*60}")
+    print(f"LEVEL {level}: {TOXICITY_LEVELS[level]['name'].upper()}")
+    print('='*60)
+    sample = df[df['toxicity_level'] == level].head(3)
+    for _, row in sample.iterrows():
+        print(f"\n[{row['topic']}]")
+        print(f"  {row['text']}")
+```
+
+## Save Output
+
+```{python}
+#| label: save
+
+output_dir = Path("output")
+output_dir.mkdir(exist_ok=True)
+
+# Save as CSV
+csv_path = output_dir / f"tweets_ollama_{len(df)}.csv"
+df.to_csv(csv_path, index=False)
+print(f"Saved to {csv_path}")
+
+# Save as JSON (with metadata)
+json_path = output_dir / f"tweets_ollama_{len(df)}.json"
+output = {
+    "metadata": {
+        "backend": "ollama",
+        "model": OLLAMA_MODEL,
+        "n_tweets": len(df),
+        "seed": SEED,
+        "toxicity_levels": TOXICITY_LEVELS
+    },
+    "tweets": df.to_dict(orient="records")
+}
+with open(json_path, "w") as f:
+    json.dump(output, f, indent=2)
+print(f"Saved to {json_path}")
+```

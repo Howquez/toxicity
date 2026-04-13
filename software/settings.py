@@ -24,14 +24,15 @@ SESSION_CONFIG_DEFAULTS = dict(
     dwell_threshold = 75,
     focal_line_position = 0.33,  # vertical position of focal line as share of viewport height (0 = top, 1 = bottom)
     url_param = 'PROLIFIC_PID',
-    completion_code = 'ABCDEF',
+    completion_code = 'CP23MT1T',
     data_path = "DICE/static/data/toxic_movie_reactions.csv", # "DICE/static/data/sample_tweets.csv",
     delimiter=',',
     feed_size = 25,
     creatives_path = "DICE/static/creatives",
     num_creatives = 8,
     sort_by='datetime',
-    condition_col='condition',
+    condition_col='',
+    toxicity_threshold=0.6,
     search_term = "Fire and Ash",
     preloader_delay = 5000,   # milliseconds — loading screen duration
     redirect_delay = 3000,    # milliseconds — auto-redirect delay
@@ -59,9 +60,8 @@ USE_POINTS = False
 
 ADMIN_USERNAME = 'admin'
 # for security, best to set admin password in an environment variable
-ADMIN_PASSWORD = environ.get('OTREE_ADMIN_PASSWORD')
+ADMIN_PASSWORD = environ.get('OTREE_ADMIN_PASSWORD', 'admin')
 
 DEMO_PAGE_INTRO_HTML = """ Welcome """
 
-# Set your own secret key via OTREE_SECRET_KEY environment variable
-SECRET_KEY = environ.get('OTREE_SECRET_KEY', '8744361096089')
+SECRET_KEY = environ.get('OTREE_SECRET_KEY', 'fallback_dev_secret_key')

@@ -1,0 +1,556 @@
+---
+title: "Toxicity"
+
+params:
+  groundhogday: 2026-01-01
+
+date: now
+date-format: long
+format: 
+  html:
+    embed-resources: true
+    theme: cosmo
+    code-line-numbers: true
+toc: false
+number-sections: false
+fig-cap-location: top
+execute:
+  echo: true
+  warning: false
+---
+
+# Steup
+
+```{r install_packages}
+#| warning: false
+#| output: false
+
+options(repos = c(CRAN = "https://cran.r-project.org")) 
+
+
+if (!requireNamespace("groundhog", quietly = TRUE)) {
+    install.packages("groundhog")
+}
+
+pkgs <- c("data.table", "stringr", "ggplot2", 
+          "mgcv", "sandwich", "lmtest", "margins")
+
+groundhog::groundhog.library(pkg = pkgs,
+                             date = params$groundhogday)
+
+rm(pkgs)
+```
+
+```{r}
+set.seed(230690)
+```
+
+# Read, Manipulate, and Merge Data
+
+```{r read_data}
+# otree/DICE (remove the participant_code I used for testing)
+dice <- fread(file = "../data/raw/DICE_2026-03-26.csv")[participant_code != "fdzno443" & session_code == "c1mufosc"]
+
+# stimuli
+stimuli <- fread(file = "../data/stimuli/toxic_movie_reactions.csv")
+
+# qualtrics (maybe we need Jonas' API key, would be less ugly but also less reproducible though)
+path <- "../data/raw/20260305_toxicity_pilot_v1_March 26, 2026_15.53.csv"
+col_names <- names(fread(path, nrows = 0))
+qualtrics <- fread(path, skip = 3, header = FALSE, col.names = col_names)
+qualtrics <- qualtrics[grepl("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}", StartDate)]
+qualtrics[, (names(qualtrics)) := lapply(.SD, type.convert, as.is = TRUE)]
+rm(path, col_names)
+```
+
+```{r rename_qualtrics}
+
+setnames(x = qualtrics,
+         old = c(
+           "grewal-focal-brand_1","grewal-focal-brand_2","grewal-focal-brand_3",
+           "grewal-focal-brand_4","grewal-focal-brand_5","grewal-focal-brand_6",
+           "grewal-unrel-brand_1","grewal-unrel-brand_2","grewal-unrel-brand_3",
+           "grewal-unrel-brand_4","grewal-unrel-brand_5","grewal-unrel-brand_6",
+           "unaided-recall","aided-recall",
+           "ad-involvement_1","ad-involvement_2","ad-involvement_3",
+           "arousal-belanche_1","arousal-belanche_2","arousal-belanche_3",
+           "info-diagnosticity_1","info-diagnosticity_2","info-diagnosticity_3",
+           "brand-commitment_1","brand-commitment_2","brand-commitment_3",
+           "choice-bernritter","purchase-bernritter_1",
+           "Seen movie","movie-liking","brand-familiarity","social-media-usage"),
+         new = c(
+           "gfb_1","gfb_2","gfb_3","gfb_4","gfb_5","gfb_6",
+           "gub_1","gub_2","gub_3","gub_4","gub_5","gub_6",
+           "recall_text","recall_aided_raw",
+           "ad_inv_1","ad_inv_2","ad_inv_3",
+           "arousal_1","arousal_2","arousal_3",
+           "info_diag_1","info_diag_2","info_diag_3",
+           "comm_1","comm_2","comm_3",
+           "choice","purchase",
+           "seen_movie","movie_liking","brand_familiarity","social_media_usage"))
+```
+
+```{r composites}
+# Brand attitudes
+#     M&M's
+qualtrics[, brand_attitude := rowMeans(.SD, na.rm = TRUE),
+          .SDcols = paste0("gfb_", 1:6)]
+
+#     Hershey's
+qualtrics[, brand_attitude_c := rowMeans(.SD, na.rm = TRUE),
+          .SDcols = paste0("gub_", 1:6)]
+
+# Brand commitment (items 1 & 3 are reverse-coded on a 1–9 scale)
+qualtrics[, comm_1r := 10 - comm_1]
+qualtrics[, comm_3r := 10 - comm_3]
+qualtrics[, brand_commitment := rowMeans(.SD, na.rm = TRUE),
+          .SDcols = c("comm_1r","comm_2","comm_3r")]
+
+# Mood
+qualtrics[, mood_pos := rowMeans(.SD, na.rm = TRUE),
+          .SDcols = paste0("mood_", 1:3)]
+qualtrics[, mood_neg := rowMeans(.SD, na.rm = TRUE),
+          .SDcols = paste0("mood_", 4:6)]
+
+# Ad involvement, arousal, info diagnosticity (all 1–7, positive direction)
+qualtrics[, ad_involvement := rowMeans(.SD, na.rm = TRUE),
+          .SDcols = paste0("ad_inv_", 1:3)]
+qualtrics[, ad_arousal := rowMeans(.SD, na.rm = TRUE),
+          .SDcols = paste0("arousal_", 1:3)]
+qualtrics[, info_diagnosticity := rowMeans(.SD, na.rm = TRUE),
+          .SDcols = paste0("info_diag_", 1:3)]
+
+# Attribution: brand / platform / algorithm responsibility (1–7 each)
+qualtrics[, attribution := rowMeans(.SD, na.rm = TRUE), .SDcols = paste0("attribution_", 1:3)]
+
+# Ad recall
+#      unaided: regex "m&m" / "mms" etc.
+qualtrics[, recall_unaided := as.integer(grepl(pattern = "m.?m", 
+                                               x = recall_text, 
+                                               ignore.case = TRUE))]
+
+# aided: choice 1 in the multiple-choice list = M&M's
+qualtrics[, recall_aided := as.integer(recall_aided_raw == 1)]
+
+# Declaration: did participant notice the ad? (1 = Yes, 2 = No)
+qualtrics[, noticed_ad := as.integer(declaration == 1)]
+
+# Brand choice: 1 = M&M's
+qualtrics[, choice_mms := as.integer(choice == 1)]
+```
+
+```{r merge_data}
+merge_1 <- merge.data.table(x = dice, by.x = "participant_label",
+                            y = qualtrics, by.y = "PID")
+
+data    <- merge.data.table(x = merge_1,
+                            y = stimuli,
+                            by = "doc_id")
+
+setorder(data, session_code, participant_code, displayed_sequence)
+```
+
+```{r toxicity_vars}
+data[, experienced_toxicity := cumsum(toxicity), by = participant_code]
+
+data[, binary_toxicity_05 := ifelse(test = toxicity >= 0.5, yes = 1, no = 0)]
+data[, binary_toxicity_06 := ifelse(test = toxicity >= 0.6, yes = 1, no = 0)]
+data[, binary_toxicity_07 := ifelse(test = toxicity >= 0.7, yes = 1, no = 0)]
+data[, binary_toxicity_09 := ifelse(test = toxicity >= 0.9, yes = 1, no = 0)]
+
+data[, feed_share_toxicity_05 := sum(binary_toxicity_05) / .N, by = participant_code]
+data[, feed_share_toxicity_06 := sum(binary_toxicity_06) / .N, by = participant_code]
+data[, feed_share_toxicity_07 := sum(binary_toxicity_07) / .N, by = participant_code]
+data[, feed_share_toxicity_09 := sum(binary_toxicity_09) / .N, by = participant_code]
+```
+
+```{r delete_pii}
+data[, participant_label := NULL]
+data[, PROLIFIC_PID := NULL]
+data[, IPAddress := NULL]
+data[, condition.x := NULL]
+data[, condition.y := NULL]
+```
+
+
+```{r}
+ggplot(data = data[doc_id == 9999],
+       mapping = aes(x = feed_share_toxicity_07)) +
+  theme_minimal() +
+  geom_histogram(bins = 30)
+```
+
+
+# Participant-Level Dataset
+
+```{r part_level}
+part_vars <- c(
+  "participant_code", "session_code",
+  "feed_toxicity", "time_on_feed","lottery_signup",
+  "brand_attitude", "brand_attitude_c", "brand_commitment",
+  "mood_pos", "mood_neg", "attribution",
+  "ad_involvement", "ad_arousal", "info_diagnosticity",
+  "recall_unaided", "recall_aided", "noticed_ad",
+  "purchase", "choice_mms",
+  "seen_movie", "movie_liking","brand_familiarity", "social_media_usage",
+  "age", "gender", "ethnicity", "feed_share_toxicity_06"
+)
+
+part <- unique(data[, ..part_vars])
+
+part[, experienced_toxicity := data[doc_id == 9999, 
+                                    .(participant_code, experienced_toxicity)][part, on = "participant_code", experienced_toxicity]]
+
+part[, scroll_depth := data[,
+                            .(scroll_depth = {
+                              reached <- displayed_sequence[!is.na(dwell_time)]
+                              if (length(reached) > 0) max(reached) else 0}),
+                            by = participant_code][part, on = "participant_code", scroll_depth]]
+
+part[, ad_dwell_time := data[doc_id == 9999, 
+                             .(participant_code, ad_dwell_time = focal_dwell_time)][part, on = "participant_code", ad_dwell_time]]
+```
+
+# Write Data
+
+```{r write_data}
+fwrite(x = data, file = "../data/processed/pilot_merged_data.csv")
+fwrite(x = part, file = "../data/processed/pilot_participant_level_data.csv")
+```
+
+# Diagnostics
+
+## Distribution of Toxicity
+
+Is it problematic?
+
+```{r}
+ggplot(data = part,
+       mapping = aes(x = feed_toxicity)) +
+  theme_minimal() +
+  geom_histogram(bins = 30, 
+                 fill = "#1b7837", alpha = 0.5)
+
+ggplot(data = part,
+       mapping = aes(x = experienced_toxicity/14)) +
+  theme_minimal() +
+  geom_histogram(bins = 30, 
+                 fill = "#1b7837", alpha = 0.5)
+```
+
+
+## Distribution of dwell times
+
+```{r}
+#| layout-ncol: 2
+#| fig-cap: 
+#|   - "Vanilla dwell time on ad"
+#|   - "Log dwell time on ad"
+
+ggplot(data = part,
+       mapping = aes(x = ad_dwell_time)) +
+  theme_minimal() +
+  geom_histogram(bins = 30, 
+                 fill = "#1b7837", alpha = 0.5)
+
+ggplot(data = part,
+       mapping = aes(x = log(ad_dwell_time))) +
+  theme_minimal() +
+  geom_histogram(bins = 30, 
+                 fill = "#1b7837", alpha = 0.5)
+```
+
+Does it make sense to divide these numbers by the amount of vertical pixels the ad was rendered in?
+
+Anyways, here is the time_spent (on feed)
+
+```{r}
+#| layout-ncol: 2
+#| fig-cap: 
+#|   - "Vanilla dwell time on feed"
+#|   - "Log dwell time on feed"
+
+ggplot(data = part,
+       mapping = aes(x = time_on_feed)) +
+  theme_minimal() +
+  geom_histogram(bins = 30, 
+                 fill = "#1b7837", alpha = 0.5)
+
+ggplot(data = part,
+       mapping = aes(x = log(time_on_feed))) +
+  theme_minimal() +
+  geom_histogram(bins = 30, 
+                 fill = "#1b7837", alpha = 0.5)
+```
+
+
+```{r}
+#| eval: false
+data[, unique(otf)]
+```
+
+Claude fasst das feedback wie folgt zusammen:
+
+- Attentional capture: Most participants failed to notice the M&M ad, absorbed by Avatar post content.
+- Habitual ad-avoidance: Several attributed non-noticing to automatic filtering developed through real-world social media use.
+- Surprise at true focus: Participants assumed the study was about Avatar reactions; the ad reveal prompted amusement or mild frustration.
+- Shallow processing among noticers: Brand recognition occurred, but impressions were weak; prompted recall was far more common than spontaneous recall.
+- Pre-existing brand affect: A minority reported positive responses to the ad, tied to prior M&M preference rather than ad content.
+- Methodological feedback:
+  - Artificial, repetitive social media posts reduced ecological validity
+  - Duplicate usernames posting conflicting opinions created confusion
+  - Single-ad design may have increased target ad salience
+  - Affective questions were difficult to answer for participants who had not consciously seen the ad
+  
+# Brand attitudes
+
+```{r}
+#| layout-ncol: 2
+#| fig-cap: 
+#|   - "M&M Brand Attitude"
+#|   - "Hershey's Brand Attitude"
+
+ggplot(data = part,
+       mapping = aes(x = brand_attitude)) +
+  theme_minimal() +
+  geom_density(fill = "#1b7837", alpha = 0.5) +
+  geom_vline(xintercept = part[, mean(brand_attitude)])
+
+ggplot(data = part,
+       mapping = aes(x = brand_attitude_c)) +
+  theme_minimal() +
+  geom_density(fill = "#762a83", alpha = 0.5) +
+  geom_vline(xintercept = part[, mean(brand_attitude_c)])
+```
+
+```{r}
+#| layout-ncol: 2
+#| fig-cap: 
+#|   - "M&M Brand Attitude"
+#|   - "Hershey's Brand Attitude"
+
+ggplot(data = part,
+       mapping = aes(y = brand_attitude, x = experienced_toxicity)) +
+  theme_minimal() +
+  geom_point(col = "#1b7837", alpha = 0.5) +
+  geom_smooth(formula = "y ~ x", method = "loess", se = TRUE)
+  
+
+ggplot(data = part,
+       mapping = aes(y = brand_attitude_c, x = experienced_toxicity)) +
+  theme_minimal() +
+  geom_point(col = "#762a83", alpha = 0.5) +
+  geom_smooth(formula = "y ~ x", method = "loess", se = TRUE)
+  
+```
+
+
+## Recall & dwell time
+
+```{r}
+fit <- glm(formula = recall_aided ~ log(ad_dwell_time), 
+            family="binomial",
+            data = part)
+```
+
+```{r}
+mar <- margins(model = fit, 
+               variables = "ad_dwell_time")
+summary(mar)
+
+part_est <- as.data.frame(part[!is.na(ad_dwell_time) & !is.na(recall_aided)])
+
+fit <- glm(recall_aided ~ log(ad_dwell_time), family = "binomial", data = part_est)
+
+cplot(fit, x = "ad_dwell_time", what = "prediction",
+      main = "Pr(Aided Recall) by Dwell Time")
+
+cplot(fit, x = "ad_dwell_time", what = "effect",
+      main = "AME of Dwell Time on Pr(Aided Recall)")
+```
+
+## Scroll depth
+
+```{r}
+
+```
+
+
+
+
+# H1: Feed Engagement × Experienced Toxicity
+
+Read two-lines test (Simonsohn 2018) which one can find [here](https://webstimate.org/twolines/twolines.R).
+We need to decide on whether we use `feed_toxicity` or `experienced_toxicity` as a manipulation.
+The latter feels more intuitive but also is somewhat endogenous. 
+
+```{r source_twolines}
+source("../analyses/twolines.R")
+```
+
+```{r h1_time}
+#| layout-ncol: 2
+#| fig-cap: 
+#|   - "Two Line Plot Uri"
+#|   - "Two Line Plot ggplot"
+
+tl_tof <- twolines(time_on_feed ~ feed_share_toxicity_06, data = as.data.frame(part), graph = 1)
+
+ggplot(data = part, 
+       mapping = aes(x = experienced_toxicity, y = time_on_feed)) +
+  geom_point(alpha = 0.4) +
+  geom_vline(xintercept = tl_tof$xc, linetype = "dashed", colour = "grey60") +
+  geom_smooth(data = part[experienced_toxicity <= tl_tof$xc],
+              formula = "y ~ x", method = "lm", se = TRUE, colour = "#1b7837") +
+  geom_smooth(data = part[experienced_toxicity >  tl_tof$xc],
+              formula = "y ~ x", method = "lm", se = TRUE, colour = "#762a83") +
+  labs(x = "Experienced Toxicity", y = "Time on Feed (s)",
+       title = "H1a: Time on Feed ~ Experienced Toxicity",
+       subtitle = paste0("b1=", round(tl_tof$b1, 2), " p=", round(tl_tof$p1, 3),
+                         "  |  b2=", round(tl_tof$b2, 2), " p=", round(tl_tof$p2, 3),
+                         "  |  xc=", round(tl_tof$xc, 2))) +
+  theme_minimal()
+```
+
+```{r h1_scroll}
+#| layout-ncol: 2
+#| fig-cap: 
+#|   - "Two Line Plot Uri"
+#|   - "Two Line Plot ggplot"
+
+tl_scroll <- twolines(scroll_depth ~ feed_share_toxicity_06, data = as.data.frame(part), graph = 1)
+
+ggplot(data = part, 
+       mapping = aes(x = experienced_toxicity, y = scroll_depth)) +
+  geom_point(alpha = 0.4) +
+  geom_vline(xintercept = tl_scroll$xc, linetype = "dashed", colour = "grey60") +
+  geom_smooth(data = part[experienced_toxicity <= tl_scroll$xc],
+              formula = "y ~ x", method = "lm", se = TRUE, colour = "#1b7837") +
+  geom_smooth(data = part[experienced_toxicity >  tl_scroll$xc],
+              formula = "y ~ x", method = "lm", se = TRUE, colour = "#762a83") +
+  labs(x = "Experienced Toxicity", y = "Scroll Depth (prop. of feed)",
+       title = "H1b: Scroll Depth ~ Experienced Toxicity",
+       subtitle = paste0("b1=", round(tl_scroll$b1, 2), " p=", round(tl_scroll$p1, 3),
+                         "  |  b2=", round(tl_scroll$b2, 2), " p=", round(tl_scroll$p2, 3),
+                         "  |  xc=", round(tl_scroll$xc, 2))) +
+  theme_minimal()
+```
+
+# H2: Ad Engagement × Experienced Toxicity
+
+```{r h2_dwell}
+#| layout-ncol: 2
+#| fig-cap: 
+#|   - "Two Line Plot Uri"
+#|   - "Two Line Plot ggplot"
+
+# H2a: Ad dwell time (log-transformed for skew)
+part[, log_ad_dwell := log1p(ad_dwell_time)]
+tl_adt <- twolines(log_ad_dwell ~ experienced_toxicity, data = as.data.frame(part), graph = 1)
+
+ggplot(data = part, 
+       mapping = aes(x = experienced_toxicity, y = log_ad_dwell)) +
+  geom_point(alpha = 0.4) +
+  geom_vline(xintercept = tl_adt$xc, linetype = "dashed", colour = "grey60") +
+  geom_smooth(data = part[experienced_toxicity <= tl_adt$xc],
+              formula = "y ~ x", method = "lm", se = TRUE, colour = "#1b7837") +
+  geom_smooth(data = part[experienced_toxicity >  tl_adt$xc],
+              formula = "y ~ x", method = "lm", se = TRUE, colour = "#762a83") +
+  labs(x = "Experienced Toxicity", y = "log(1 + Ad Dwell Time)",
+       title = "H2a: Ad Dwell Time ~ Experienced Toxicity",
+       subtitle = paste0("b1=", round(tl_adt$b1, 2), " p=", round(tl_adt$p1, 3),
+                         "  |  b2=", round(tl_adt$b2, 2), " p=", round(tl_adt$p2, 3),
+                         "  |  xc=", round(tl_adt$xc, 2))) +
+  theme_minimal()
+```
+
+```{r h2_ctr}
+#| layout-ncol: 2
+#| fig-cap: 
+#|   - "Two Line Plot Uri"
+#|   - "Two Line Plot ggplot"
+
+# H2b: Ad CTR — logistic two-lines (binary outcome)
+part[, ctr := as.numeric(lottery_signup)]
+tl_ctr <- twolines(ctr ~ experienced_toxicity, data = as.data.frame(part),
+                   link = "binomial", graph = 1)
+
+ggplot(data = part, 
+       mapping = aes(x = experienced_toxicity, y = ctr)) +
+  geom_jitter(alpha = 0.3, height = 0.02) +
+  geom_vline(xintercept = tl_ctr$xc, linetype = "dashed", colour = "grey60") +
+  geom_smooth(data = part[experienced_toxicity <= tl_ctr$xc],
+              method = "glm", method.args = list(family = "binomial"),
+              se = TRUE, colour = "#1b7837") +
+  geom_smooth(data = part[experienced_toxicity >  tl_ctr$xc],
+              method = "glm", method.args = list(family = "binomial"),
+              se = TRUE, colour = "#762a83") +
+  labs(x = "Experienced Toxicity", y = "Ad Click (0/1)",
+       title = "H2b: Ad CTR ~ Experienced Toxicity",
+       subtitle = paste0("b1=", round(tl_ctr$b1, 2), " p=", round(tl_ctr$p1, 3),
+                         "  |  b2=", round(tl_ctr$b2, 2), " p=", round(tl_ctr$p2, 3),
+                         "  |  xc=", round(tl_ctr$xc, 2))) +
+  theme_minimal()
+```
+
+```{r h2_recall}
+
+# H2c: Unaided recall (logistic)
+part[, recall_unaided_n := as.numeric(recall_unaided)]
+tl_ur <- twolines(recall_unaided_n ~ experienced_toxicity, data = as.data.frame(part),
+                  link = "binomial", graph = 0)
+
+# H2d: Aided recall (logistic)
+part[, recall_aided_n := as.numeric(recall_aided)]
+tl_ar <- twolines(recall_aided_n ~ experienced_toxicity, data = as.data.frame(part),
+                  link = "binomial", graph = 0)
+
+recall_long <- melt(
+  part[, .(participant_code, experienced_toxicity,
+           Unaided = recall_unaided_n,
+           Aided   = recall_aided_n)],
+  id.vars       = c("participant_code","experienced_toxicity"),
+  variable.name = "type",
+  value.name    = "recalled"
+)
+
+ggplot(data = recall_long, 
+       mapping = aes(x = experienced_toxicity, y = recalled, colour = type)) +
+  geom_smooth(formula = "y ~ x", method = "loess", se = TRUE) +
+  scale_colour_manual(values = c("#1b7837","#762a83")) +
+  labs(x = "Experienced Toxicity", y = "P(Recall)", colour = NULL,
+       title = "H2c–d: Ad Recall ~ Experienced Toxicity") +
+  theme_minimal()
+```
+
+# RQ1: Brand Attitude × Experienced Toxicity
+
+```{r rq1}
+#| layout-ncol: 3
+
+tl_ba <- twolines(brand_attitude ~ experienced_toxicity, data = as.data.frame(part), graph = 0)
+
+ggplot(data = part, 
+       mapping = aes(x = experienced_toxicity, y = brand_attitude)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(formula = "y ~ x", method = "loess", colour = "steelblue", se = TRUE) +
+  labs(x = "Experienced Toxicity", y = "Brand Attitude — M&M's (1–7)",
+       title = "RQ1: Brand Attitude ~ Experienced Toxicity") +
+  theme_minimal()
+
+ggplot(data = part, 
+       mapping = aes(x = experienced_toxicity, y = purchase)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(formula = "y ~ x", method = "loess", colour = "steelblue", se = TRUE) +
+  labs(x = "Experienced Toxicity", y = "Purchase Intent",
+       title = "RQ1: Purchase Intent ~ Experienced Toxicity") +
+  theme_minimal()
+
+ggplot(data = part, 
+       mapping = aes(x = experienced_toxicity, y = brand_commitment)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(formula = "y ~ x", method = "loess", colour = "steelblue", se = TRUE) +
+  labs(x = "Experienced Toxicity", y = "Brand Commitment (1–9)",
+       title = "RQ1: Brand Commitment ~ Experienced Toxicity") +
+  theme_minimal()
+```

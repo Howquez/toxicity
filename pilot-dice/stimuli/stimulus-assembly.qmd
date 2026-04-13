@@ -1,0 +1,82 @@
+---
+title: "Stimulus Assembly"
+author: "Hauke Roggenkamp"
+format:
+  html:
+    embed-resources: true
+execute:
+  echo: false
+---
+
+```{r install_packages}
+#| warning: false
+#| output: false
+
+options(repos = c(CRAN = "https://cran.r-project.org")) 
+
+if (!requireNamespace("groundhog", quietly = TRUE)) {
+    install.packages("groundhog")
+}
+
+pkgs <- c("data.table", "knitr", "stringr", "lubridate", "ggplot2")
+
+groundhog::groundhog.library(pkg = pkgs,
+                             date = "2026-01-01")
+
+rm(pkgs)
+```
+
+```{r}
+data_list <- list()
+files <- list.files(path = "output/", pattern = "(grok|moderate).*csv", full.names = TRUE)
+
+for (file in files){
+  tmp <- fread(file)
+  data_list[[file]] <- tmp
+}
+rm(tmp)
+
+data <- rbindlist(l = data_list, fill = TRUE)
+setorder(data, topic, perspective_toxicity)
+```
+
+```{r}
+length <- data[, .N]
+names <- c("Emma", "Liam", "Sophia", "Noah", "Olivia", "Ethan", "Ava", "Lucas", "Steve", "Nate", "Trisha", "Marie", "Noah", "Taylor", "Francesca", "Isabella", "Mason", "Mia", "Oliver", "Charlotte", "Elijah", "Amelia", "James", "Harper", "Benjamin", "Evelyn", "Alexander", "William", "Ava", "Jayden", "Aurelia", "Jack", "Miles", "Michael", "Leo", "Amari")
+tweets <- data.table(doc_id = seq(1:length),
+                     datetime = sort(Sys.time() - sample(x = 10000:300000, size = length, replace = TRUE)) |> format("%d.%m.%y %H:%M"),
+                     text = data[, text],
+                     media = "",
+                     alt_text = NA,
+                     likes = sample(x = 0:300, size = length, replace = TRUE),
+                     reposts = sample(x = 0:100, size = length, replace = TRUE),
+                     replies = sample(x = 0:200, size = length, replace = TRUE),
+                     username = sample(x = names, size = length, replace = TRUE),
+                     handle = NA,
+                     user_description = paste0("Perspective's Score: ", data[, perspective_toxicity]),
+                     user_image = "https://www.nicepng.com/png/full/136-1366211_group-of-10-guys-login-user-icon-png.png",
+                     user_followers = sample(x = 0:2000, size = length, replace = TRUE),
+                     sponsored = 0,
+                     target = NA,
+                     condition = "A",
+                     sequence = 1:length,
+                     commented_post = 0,
+                     source = "grok-3")
+
+tweets[, handle := str_to_lower(username)]
+# tweets[, media := "https://i.guim.co.uk/img/static/sys-images/Film/Pix/pictures/2009/12/17/1261051924334/Scene-from-Avatar-2009-001.jpg?width=620&dpr=1&s=none&crop=none"]
+```
+
+```{r}
+fwrite(x = tweets, file = "output/toxic_movie_reactions.csv")
+```
+
+
+```{r}
+ggplot(data = data, mapping = aes(x = perspective_toxicity)) +
+  geom_density() +
+  # geom_histogram() +
+  geom_hline(yintercept = 0) + 
+  theme_minimal()
+```
+

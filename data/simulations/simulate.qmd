@@ -1,0 +1,340 @@
+---
+title: "Data Simulation: Main Study"
+date: last-modified
+
+params:
+  groundhogday: 2026-01-01
+
+format:
+  html:
+    toc: true
+    code-fold: true
+    embed-resources: true
+knitr:
+  opts_chunk:
+    warning: false
+    message: false
+---
+
+# Overview
+
+This document simulates participant-level data for the main study under H1 (inverted-U relationship between feed toxicity and ad engagement outcomes).
+
+**Treatment:** `feed_toxicity` — proportion of toxic posts in the feed (0–1, uniform grid), reflecting the new binary-pool operationalization.
+
+**Outcomes:**
+
+- `time_on_feed`: total browsing duration (seconds)
+- `ad_dwell_time`: dwell time on the sponsored post (doc_id = 9999, seconds)
+- `lottery_signup`: entered the lottery draw (binary)
+
+Distributional parameters (scale, spread, skewness) are grounded in the pilot study (`pilot-dice/data/raw/DICE_2026-03-26.csv`), which used the old continuous `feed_toxicity` measure and showed null effects. The inverted-U signal is therefore imposed by design, not derived from the pilot.
+
+**Inverted-U parameterisation:** $\mathbb{E}[Y \mid x] = \beta_0 + \beta_1 \cdot x(1-x)$
+
+- Symmetric around $x = 0.5$
+- Tails ($x = 0$ or $1$): $\mathbb{E}[Y] = \beta_0$
+- Peak ($x = 0.5$): $\mathbb{E}[Y] = \beta_0 + 0.25\,\beta_1$
+
+```{r install_packages}
+#| warning: false
+#| output: false
+
+options(repos = c(CRAN = "https://cran.r-project.org")) 
+
+
+if (!requireNamespace("groundhog", quietly = TRUE)) {
+    install.packages("groundhog")
+}
+
+pkgs <- c("data.table", "stringr", "ggplot2", 
+          "mgcv", "sandwich", "lmtest", "margins")
+
+groundhog::groundhog.library(pkg = pkgs,
+                             date = params$groundhogday)
+
+rm(pkgs)
+```
+
+```{r seed}
+set.seed(230691)
+N <- 20000L
+```
+
+```{r read_data}
+# otree/DICE (remove the participant_code I used for testing)
+dice <- fread(file = "../../pilot-dice/data/raw/DICE_2026-03-26.csv")[participant_code != "fdzno443" & session_code == "c1mufosc"]
+
+# stimuli
+stimuli <- fread(file = "../../pilot-dice/data/stimuli/toxic_movie_reactions.csv")
+
+# qualtrics (maybe we need Jonas' API key, would be less ugly but also less reproducible though)
+path <- "../../pilot-dice/data/raw/20260305_toxicity_pilot_v1_March 26, 2026_15.53.csv"
+col_names <- names(fread(path, nrows = 0))
+pilot_q <- fread(path, skip = 3, header = FALSE, col.names = col_names)
+pilot_q <- pilot_q[grepl("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}", StartDate)]
+pilot_q[, (names(pilot_q)) := lapply(.SD, type.convert, as.is = TRUE)]
+rm(path, col_names)
+
+# processed
+processed <- fread(file = "../../pilot-dice/data/processed/pilot_participant_level_data.csv")
+```
+
+# oTree 
+
+## Treatment assignment
+
+Doses are drawn from a uniform grid over $[0, 1]$ and randomly shuffled, mirroring the actual experiment.
+
+```{r treatment}
+# Helper: generate n random oTree-style codes (8 lowercase alphanumeric chars)
+otree_code <- function(n) {
+  chars <- c(letters, 0:9)
+  replicate(n, paste(sample(chars, 8, replace = TRUE), collapse = ""))
+}
+
+sim <- data.table(session_code    = otree_code(1),          # one session
+                  participant_code = otree_code(N),
+                  feed_toxicity   = sample(x = seq(from = 0, to = 1, by = 0.04),
+                                           size = N,
+                                           replace = TRUE))
+
+x <- sim[, feed_toxicity]
+N <- nrow(sim)  # confirm N after construction
+```
+
+## Outcomes
+
+### `time_on_feed`
+
+Pilot: median = `r processed[, median(time_on_feed, na.rm = TRUE)]` s, mean = `r processed[, mean(time_on_feed, na.rm = TRUE)]` s, SD = `r processed[, sd(time_on_feed, na.rm = TRUE)]` s.
+Inverted-U: baseline $\approx$ 60 s, peak $\approx$ 90 s at $x = 0.5$.
+Normal with floor at 5 s.
+
+```{r time_on_feed}
+b0_tof <- 60    # E[time_on_feed] at x = 0 or 1
+b1_tof <- 120   # peak = b0 + 0.25 * b1 = 90s
+sd_tof  <- 50
+
+sim[, time_on_feed := pmax(5, rnorm(N, mean = b0_tof + b1_tof * x * (1 - x), sd = sd_tof))]
+```
+
+### `ad_dwell_time`
+
+Pilot: `r processed[, median(ad_dwell_time, na.rm = TRUE)]` s, mean = `r processed[, mean(ad_dwell_time, na.rm = TRUE)]` s, SD = `r processed[, sd(ad_dwell_time, na.rm = TRUE)]` s. — strongly right-skewed.
+Log-normal with $\sigma = 1.2$ to reproduce the heavy right tail.
+Log-median goes from $\log(2) \approx 0.69$ at the tails to $\log(4) \approx 1.39$ at the peak.
+Floor at 0.05 s (viewport tracker resolution).
+
+```{r ad_dwell_time}
+b0_ad    <- log(2)
+b1_ad    <- 4 * (log(4) - log(2))   # peak log-median = log(4) at x = 0.5
+sigma_ad <- 1.2
+
+sim[, ad_dwell_time := pmax(0.05, rlnorm(N, meanlog = b0_ad + b1_ad * x * (1 - x), sdlog = sigma_ad))]
+```
+
+### `lottery_signup`
+
+Pilot: `r processed[lottery_signup == 1, .N]` = `r 100 * processed[, mean(lottery_signup == 1, na.rm = TRUE)]`% signed up — very sparse.
+Logistic inverted-U: $\text{logit}(p) = \beta_0 + \beta_1 \cdot x(1-x)$, with $p \approx 2\%$ at the tails and $p \approx 5\%$ at the peak.
+
+```{r lottery_signup}
+b0_ls <- qlogis(0.02)
+b1_ls <- (qlogis(0.05) - b0_ls) / 0.25
+
+sim[, p_lottery := plogis(b0_ls + b1_ls * x * (1 - x))]
+sim[, lottery_signup := rbinom(N, size = 1L, prob = p_lottery)]
+sim[, p_lottery := NULL]
+```
+
+## Descriptives
+
+```{r descriptives}
+sim[, .(
+  feed_toxicity_mean = mean(feed_toxicity),
+  time_on_feed_mean  = round(mean(time_on_feed), 1),
+  time_on_feed_sd    = round(sd(time_on_feed), 1),
+  ad_dwell_median    = round(median(ad_dwell_time), 2),
+  ad_dwell_mean      = round(mean(ad_dwell_time), 2),
+  lottery_pct        = round(100 * mean(lottery_signup), 1)
+)]
+```
+
+## Plots
+
+```{r plots}
+#| fig-width: 8
+#| fig-height: 7
+#| eval: false
+
+theme_set(theme_minimal())
+
+p1 <- ggplot(sim, aes(x = feed_toxicity, y = time_on_feed)) +
+  geom_point(alpha = 0.05, size = 0.4) +
+  geom_smooth(method = "loess", formula = y ~ x, colour = "#000000", fill = "#000000") +
+  geom_hline(yintercept = 0) +
+  coord_cartesian(ylim = c(0, NA), xlim = c(0, 1), expand = FALSE) +
+  labs(x = "Feed toxicity (proportion toxic)", y = "Time on feed (s)",
+       title = "Time on feed")
+
+p2 <- ggplot(sim, aes(x = feed_toxicity, y = ad_dwell_time)) +
+  geom_point(alpha = 0.05, size = 0.4) +
+  geom_smooth(method = "loess", formula = y ~ x, colour = "#000000", fill = "#000000") +
+  geom_hline(yintercept = 0) +
+  coord_cartesian(ylim = c(0, NA), xlim = c(0, 1), expand = FALSE) +
+  labs(x = "Feed toxicity (proportion toxic)", y = "Ad dwell time (s)",
+       title = "Ad dwell time")
+
+p3 <- ggplot(sim[, .(p = mean(lottery_signup), .N),
+                 by = .(bin = cut(feed_toxicity, breaks = 20))],
+             aes(x = as.integer(bin), y = p)) +
+  geom_col(fill = "#333333") +
+  geom_hline(yintercept = 0) +
+  labs(x = "Feed toxicity (binned)", y = "Pr(lottery signup)",
+       title = "Lottery signup rate") +
+  theme(axis.text.x = element_blank())
+
+gridExtra::grid.arrange(p1, p2, p3, ncol = 1)
+```
+
+
+# Survey data simulation
+
+This section simulates survey responses for the same $N = 20{,}000$ participants by bootstrap resampling from the pilot Qualtrics data (`20260305_toxicity_pilot_v1_March 26, 2026_15.53.csv`, $n = 201$). Pilot survey outcomes showed null effects of the (old) treatment operationalization, so no treatment effect is imposed here. Survey variables are simulated from their marginal pilot distributions; correlations between items are preserved through joint resampling.
+
+The following constructs are included:
+
+| Construct | Variables | Scale |
+|---|---|---|
+| Demographics | `age`, `gender` | continuous / 1--3 |
+| Recall | `recall_text`, `recall_aided_raw` | text / 1--10 |
+| Brand attitude (focal) | `gfb_1`--`_6` | 1--7 |
+| Brand attitude (unrelated) | `gub_1`--`_6` | 1--7 |
+| Brand choice | `choice` | 1--4 |
+| Purchase probability | `purchase` | 0--100 |
+| Attribution | `attribution_1`--`_3` | 8--14 |
+| Mood | `mood_1`--`_6` | 1--7 |
+| Ad involvement | `ad_inv_1`--`_3` | 1--7 |
+| Arousal | `arousal_1`--`_3` | 1--7 |
+| Information diagnosticity | `info_diag_1`--`_3` | 1--7 |
+| Brand commitment | `comm_1`--`_3` | 1--9 |
+| Movie seen / liking | `seen_movie`, `movie_liking` | 3--5 / 1--7 |
+| Brand familiarity | `brand_familiarity` | 1--2 |
+| Social media usage | `social_media_usage` | 1--7 |
+
+```{r rename-qualtrics}
+setnames(x = pilot_q,
+         old = c(
+           "grewal-focal-brand_1","grewal-focal-brand_2","grewal-focal-brand_3",
+           "grewal-focal-brand_4","grewal-focal-brand_5","grewal-focal-brand_6",
+           "grewal-unrel-brand_1","grewal-unrel-brand_2","grewal-unrel-brand_3",
+           "grewal-unrel-brand_4","grewal-unrel-brand_5","grewal-unrel-brand_6",
+           "unaided-recall","aided-recall",
+           "ad-involvement_1","ad-involvement_2","ad-involvement_3",
+           "arousal-belanche_1","arousal-belanche_2","arousal-belanche_3",
+           "info-diagnosticity_1","info-diagnosticity_2","info-diagnosticity_3",
+           "brand-commitment_1","brand-commitment_2","brand-commitment_3",
+           "choice-bernritter","purchase-bernritter_1",
+           "Seen movie","movie-liking","brand-familiarity","social-media-usage"),
+         new = c(
+           "gfb_1","gfb_2","gfb_3","gfb_4","gfb_5","gfb_6",
+           "gub_1","gub_2","gub_3","gub_4","gub_5","gub_6",
+           "recall_text","recall_aided_raw",
+           "ad_inv_1","ad_inv_2","ad_inv_3",
+           "arousal_1","arousal_2","arousal_3",
+           "info_diag_1","info_diag_2","info_diag_3",
+           "comm_1","comm_2","comm_3",
+           "choice","purchase",
+           "seen_movie","movie_liking","brand_familiarity","social_media_usage"))
+```
+
+```{r survey-simulate}
+# Select substantive columns and bootstrap resample N rows with replacement
+survey_cols <- c(
+  "age", "gender",
+  "recall_text","recall_aided_raw",
+  "gfb_1","gfb_2","gfb_3","gfb_4","gfb_5","gfb_6",
+  "gub_1","gub_2","gub_3","gub_4","gub_5","gub_6",
+  "choice","purchase",
+  "attribution_1","attribution_2","attribution_3",
+  "mood_1","mood_2","mood_3","mood_4","mood_5","mood_6",
+  "ad_inv_1","ad_inv_2","ad_inv_3",
+  "arousal_1","arousal_2","arousal_3",
+  "info_diag_1","info_diag_2","info_diag_3",
+  "comm_1","comm_2","comm_3",
+  "declaration",
+  "seen_movie","movie_liking","brand_familiarity","social_media_usage"
+)
+
+survey_sim <- pilot_q[sample(.N, size = N, replace = TRUE), ..survey_cols]
+survey_sim[, participant_code := sim$participant_code]
+setcolorder(survey_sim, c("participant_code", survey_cols))
+```
+
+```{r survey-descriptives}
+rbind(pilot_q[, 
+              lapply(.SD, mean, na.rm = TRUE),
+              .SDcols = c("recall_aided_raw","gfb_1","purchase","arousal_1","mood_1","ad_inv_1")
+              ][, source := "pilot"],
+      survey_sim[, 
+           lapply(.SD, mean, na.rm = TRUE),
+           .SDcols = c("recall_aided_raw","gfb_1","purchase","arousal_1","mood_1","ad_inv_1")
+           ][, source := "simulated"])
+```
+
+```{r composites}
+# Brand attitudes
+#     M&M's
+survey_sim[, brand_attitude := rowMeans(.SD, na.rm = TRUE),
+          .SDcols = paste0("gfb_", 1:6)]
+
+#     Hershey's
+survey_sim[, brand_attitude_c := rowMeans(.SD, na.rm = TRUE),
+          .SDcols = paste0("gub_", 1:6)]
+
+# Brand commitment (items 1 & 3 are reverse-coded on a 1–9 scale)
+survey_sim[, comm_1r := 10 - comm_1]
+survey_sim[, comm_3r := 10 - comm_3]
+survey_sim[, brand_commitment := rowMeans(.SD, na.rm = TRUE),
+          .SDcols = c("comm_1r","comm_2","comm_3r")]
+
+# Mood
+survey_sim[, mood_pos := rowMeans(.SD, na.rm = TRUE),
+          .SDcols = paste0("mood_", 1:3)]
+survey_sim[, mood_neg := rowMeans(.SD, na.rm = TRUE),
+          .SDcols = paste0("mood_", 4:6)]
+
+# Ad involvement, arousal, info diagnosticity (all 1–7, positive direction)
+survey_sim[, ad_involvement := rowMeans(.SD, na.rm = TRUE),
+          .SDcols = paste0("ad_inv_", 1:3)]
+survey_sim[, ad_arousal := rowMeans(.SD, na.rm = TRUE),
+          .SDcols = paste0("arousal_", 1:3)]
+survey_sim[, info_diagnosticity := rowMeans(.SD, na.rm = TRUE),
+          .SDcols = paste0("info_diag_", 1:3)]
+
+# Attribution: brand / platform / algorithm responsibility (1–7 each)
+survey_sim[, attribution := rowMeans(.SD, na.rm = TRUE), .SDcols = paste0("attribution_", 1:3)]
+
+# Ad recall
+#      unaided: regex "m&m" / "mms" etc.
+survey_sim[, recall_unaided := as.integer(grepl(pattern = "m.?m", 
+                                               x = recall_text, 
+                                               ignore.case = TRUE))]
+
+# aided: choice 1 in the multiple-choice list = M&M's
+survey_sim[, recall_aided := as.integer(recall_aided_raw == 1)]
+
+# Declaration: did participant notice the ad? (1 = Yes, 2 = No)
+survey_sim[, noticed_ad := as.integer(declaration == 1)]
+
+# Brand choice: 1 = M&M's
+survey_sim[, choice_mms := as.integer(choice == 1)]
+```
+
+# Merge & write
+
+```{r merge_data}
+data <- merge.data.table(x = sim, y = survey_sim, by = "participant_code")
+fwrite(x = data, file = "simulations.csv")
+```

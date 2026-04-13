@@ -31,7 +31,7 @@ class Group(BaseGroup):
 
 class Player(BasePlayer):
     feed_condition = models.StringField(doc='indicates the feed condition a player is randomly assigned to')
-    feed_toxicity = models.FloatField(doc='mean toxicity score of the feed shown to this player', blank=True)
+    feed_toxicity = models.FloatField(doc='proportion of toxic posts (toxicity >= threshold) in the feed shown to this player', blank=True)
     sequence = models.StringField(doc='prints the sequence of posts based on doc_id')
 
     dwell_data = models.LongStringField(doc='tracks the time feed items were visible in a participants viewport.', blank=True)
@@ -87,13 +87,14 @@ def creating_session(subsession):
                 pass
     num_creatives = subsession.session.config.get('num_creatives', 5)
 
-    # Prepare uniformly spaced toxicity targets if feed_size is configured
+    # Prepare uniformly spaced toxic-post count targets if feed_size is configured
     toxicity_targets = None
-    if feed_size > 0 and 'toxicity' in processed_posts.columns:
+    if feed_size > 0 and 'is_toxic' in processed_posts.columns:
         n_players = len(players)
-        tox_min = processed_posts['toxicity'].min()
-        tox_max = processed_posts['toxicity'].max()
-        toxicity_targets = np.linspace(tox_min, tox_max, n_players)
+        regular = (processed_posts[processed_posts['fixed_position'].isna()]
+                   if 'fixed_position' in processed_posts.columns else processed_posts)
+        max_toxic = min(feed_size, int(regular['is_toxic'].sum()))
+        toxicity_targets = np.round(np.linspace(0, max_toxic, n_players)).astype(int)
         np.random.shuffle(toxicity_targets)
 
     for i, player in enumerate(players):
@@ -109,11 +110,11 @@ def creating_session(subsession):
                 condition_mask = condition_mask | posts['fixed_position'].notna()
             posts = posts[condition_mask]
 
-        # Sample a subset of posts by toxicity if configured
+        # Sample a subset of posts by toxic proportion if configured
         if toxicity_targets is not None:
-            posts = sample_feed_by_toxicity(posts, toxicity_targets[i], feed_size)
+            posts = sample_feed_by_proportion(posts, toxicity_targets[i], feed_size)
             regular = posts[posts['fixed_position'].isna()] if 'fixed_position' in posts.columns else posts
-            player.feed_toxicity = float(round(regular['toxicity'].mean(), 4))
+            player.feed_toxicity = float(round(regular['is_toxic'].mean(), 4))
 
         # Shuffle post order and assign sequential ranks
         posts = posts.sample(frac=1).reset_index(drop=True)
@@ -248,11 +249,11 @@ def extract_toxicity(df):
     return df
 
 
-def sample_feed_by_toxicity(posts, target_mean, feed_size, sigma=0.15):
-    """Sample feed_size posts with mean toxicity close to target_mean.
+def sample_feed_by_proportion(posts, n_toxic_target, feed_size):
+    """Sample feed_size posts with exactly n_toxic_target toxic posts (where possible).
 
     Fixed-position posts (e.g. ads) are always included and excluded from
-    the sampling pool so they don't distort toxicity weights.
+    the sampling pool so they don't distort the toxic proportion.
     """
     if 'fixed_position' in posts.columns:
         fixed = posts[posts['fixed_position'].notna()]
@@ -264,11 +265,20 @@ def sample_feed_by_toxicity(posts, target_mean, feed_size, sigma=0.15):
     if feed_size >= len(regular):
         return posts.copy()
 
-    scores = regular['toxicity'].values
-    weights = np.exp(-0.5 * ((scores - target_mean) / sigma) ** 2)
-    weights /= weights.sum()
-    indices = np.random.choice(len(regular), size=feed_size, replace=False, p=weights)
-    sampled = regular.iloc[sorted(indices)]
+    toxic = regular[regular['is_toxic']]
+    non_toxic = regular[~regular['is_toxic']]
+
+    n_toxic = min(n_toxic_target, len(toxic))
+    n_non_toxic = min(feed_size - n_toxic, len(non_toxic))
+    # If non-toxic pool is too small, top up from toxic pool
+    n_toxic = min(feed_size - n_non_toxic, len(toxic))
+
+    parts = []
+    if n_toxic > 0:
+        parts.append(toxic.sample(n=n_toxic))
+    if n_non_toxic > 0:
+        parts.append(non_toxic.sample(n=n_non_toxic))
+    sampled = pd.concat(parts)
 
     if not fixed.empty:
         return pd.concat([sampled, fixed]).copy()
@@ -283,6 +293,9 @@ def preprocessing(df, config):
     df = prepare_media(df)
     df = prepare_user_profiles(df)
     df = extract_toxicity(df)
+    if 'toxicity' in df.columns:
+        threshold = config.get('toxicity_threshold', 0.6)
+        df['is_toxic'] = df['toxicity'] >= threshold
 
     # Check if 'condition_col' is set and not empty, and if it's an existing column in df
     if ('condition_col' in config and

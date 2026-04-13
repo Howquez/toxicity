@@ -1,0 +1,453 @@
+---
+title: "Stimuli Humanization & Uniform Sampling"
+author: "Hauke Roggenkamp"
+format:
+  html:
+    embed-resources: true
+execute:
+  echo: false
+---
+
+## Overview
+
+This script takes all generated tweets, samples them to approximate a uniform toxicity distribution, detects repetitive LLM patterns, and rephrases tweets in batches to sound more human and diverse. The final dataset is saved directly to the DICE app's data directory.
+
+## Setup
+
+```{python}
+#| label: setup
+
+import os
+import json
+import glob
+import pandas as pd
+import numpy as np
+from pathlib import Path
+from collections import Counter
+from dotenv import load_dotenv
+from openai import OpenAI
+import requests
+import time
+import random
+import re
+from IPython.display import display, Markdown, HTML
+from itables import show
+
+load_dotenv(Path(__file__).parent.parent / ".env" if "__file__" in dir() else "../../.env")
+
+GROK_MODEL = "grok-3"
+SEED = 42
+random.seed(SEED)
+np.random.seed(SEED)
+
+# --- Configuration ---
+N_BINS = 10                   # number of toxicity bins for uniform sampling
+TWEETS_PER_BIN = 25           # target tweets per bin (total = N_BINS * TWEETS_PER_BIN)
+TOXICITY_TOLERANCE = 0.07     # max allowed shift in Perspective score after rephrasing
+BATCH_SIZE = 8                # tweets per LLM batch for rephrasing
+MAX_RETRIES = 2               # retries if toxicity drifts too much
+
+OUTPUT_PATH = Path("../../software/DICE/static/data/toxic_movie_reactions.csv")
+```
+
+```{python}
+#| label: api-setup
+
+client = OpenAI(
+    api_key=os.environ.get("XAI_API_KEY"),
+    base_url="https://api.x.ai/v1"
+)
+```
+
+## Step 1: Load & Sample for Uniform Distribution
+
+```{python}
+#| label: load-and-sample
+
+# Load all generated tweets
+files = glob.glob("output/tweets_*.csv")
+dfs = [pd.read_csv(f) for f in files]
+raw = pd.concat(dfs, ignore_index=True).dropna(subset=["perspective_toxicity"])
+
+display(Markdown(f"**Loaded {len(raw)} tweets** from {len(files)} files"))
+
+# Bin by toxicity and sample uniformly
+bin_edges = np.linspace(0, 1, N_BINS + 1)
+raw["tox_bin"] = pd.cut(raw["perspective_toxicity"], bins=bin_edges, labels=False, include_lowest=True)
+
+sampled = []
+for b in range(N_BINS):
+    pool = raw[raw["tox_bin"] == b]
+    n = min(TWEETS_PER_BIN, len(pool))
+    if n > 0:
+        sampled.append(pool.sample(n=n, random_state=SEED))
+    if n < TWEETS_PER_BIN:
+        print(f"  Bin [{bin_edges[b]:.1f}-{bin_edges[b+1]:.1f}]: only {n}/{TWEETS_PER_BIN} tweets available")
+
+df = pd.concat(sampled, ignore_index=True)
+display(Markdown(f"**Sampled {len(df)} tweets** for uniform distribution"))
+
+# Show distribution after sampling
+counts, _ = np.histogram(df["perspective_toxicity"], bins=bin_edges)
+for i, c in enumerate(counts):
+    print(f"  [{bin_edges[i]:.1f} - {bin_edges[i+1]:.1f}]: {c}")
+```
+
+## Step 2: Detect Repetitive Patterns
+
+```{python}
+#| label: detect-repetition
+
+def get_ngrams(text, n):
+    """Extract word-level n-grams from text."""
+    words = text.lower().split()
+    return [" ".join(words[i:i+n]) for i in range(len(words) - n + 1)]
+
+# Collect n-grams across all tweets
+bigrams = Counter()
+trigrams = Counter()
+openings = Counter()
+
+for text in df["text"]:
+    bigrams.update(get_ngrams(text, 2))
+    trigrams.update(get_ngrams(text, 3))
+    # First 4 words as opening
+    words = text.split()[:4]
+    if words:
+        openings[" ".join(words).lower()] += 1
+
+# Filter to overused patterns (appearing in >5% of tweets)
+threshold = max(3, int(len(df) * 0.05))
+
+overused_bigrams = [phrase for phrase, count in bigrams.most_common(50) if count >= threshold]
+overused_trigrams = [phrase for phrase, count in trigrams.most_common(50) if count >= threshold]
+overused_openings = [phrase for phrase, count in openings.most_common(50) if count >= threshold]
+
+display(Markdown(f"**Repetitive patterns detected:**"))
+print(f"  Overused bigrams ({len(overused_bigrams)}): {overused_bigrams[:10]}")
+print(f"  Overused trigrams ({len(overused_trigrams)}): {overused_trigrams[:10]}")
+print(f"  Overused openings ({len(overused_openings)}): {overused_openings[:10]}")
+
+repetition_warning = ""
+if overused_trigrams:
+    repetition_warning = "AVOID these overused phrases: " + ", ".join(f'"{p}"' for p in overused_trigrams[:15]) + ". "
+```
+
+## Step 3: Batch Rephrase for Humanization
+
+```{python}
+#| label: rephrase-functions
+
+MOVIE_VARIANTS = [
+    "Avatar: Fire and Ash",
+    "Avatar: Fire and Ash (2025)",
+    "Fire and Ash",
+    "the new Avatar movie",
+    "the new Avatar",
+    "the latest Avatar",
+    "Avatar 3",
+    "the recent Avatar film",
+]
+
+
+def get_perspective_score(text):
+    """Get toxicity score from Perspective API."""
+    api_key = os.environ.get("PERSPECTIVE_API_KEY")
+    url = f"https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze?key={api_key}"
+    payload = {
+        "comment": {"text": text},
+        "languages": ["en"],
+        "requestedAttributes": {"TOXICITY": {}, "SEVERE_TOXICITY": {}, "INSULT": {}, "PROFANITY": {}, "THREAT": {}}
+    }
+    try:
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+        scores = response.json()["attributeScores"]
+        return {
+            "toxicity": scores["TOXICITY"]["summaryScore"]["value"],
+            "severe_toxicity": scores["SEVERE_TOXICITY"]["summaryScore"]["value"],
+            "insult": scores["INSULT"]["summaryScore"]["value"],
+            "profanity": scores["PROFANITY"]["summaryScore"]["value"],
+            "threat": scores["THREAT"]["summaryScore"]["value"],
+        }
+    except Exception as e:
+        print(f"Perspective API error: {e}")
+        return None
+
+
+def rephrase_batch(tweets_batch, scores_batch, repetition_warning):
+    """Send a batch of tweets to Grok for humanization, with per-tweet toxicity targets."""
+    numbered = "\n".join(
+        f"{i+1}. [toxicity={s:.2f}] {t}"
+        for i, (t, s) in enumerate(zip(tweets_batch, scores_batch))
+    )
+
+    prompt = (
+        f"Below are {len(tweets_batch)} tweets about a movie. They were generated by an AI and sound "
+        f"repetitive and unnatural. Rewrite each tweet so it sounds like it was written by a different "
+        f"real person on social media.\n\n"
+        f"CRITICAL — TOXICITY CONSTRAINT:\n"
+        f"Each tweet is tagged with its Google Perspective API toxicity score (0 = civil, 1 = very toxic). "
+        f"Your rewrite MUST keep the same toxicity level — do NOT soften harsh tweets or sharpen civil ones. "
+        f"A tweet tagged [toxicity=0.85] must remain aggressive/profane; one tagged [toxicity=0.05] must stay polite. "
+        f"The score should not drift by more than {TOXICITY_TOLERANCE}.\n\n"
+        f"OTHER RULES:\n"
+        f"- PRESERVE the original opinion (positive/negative) of each tweet.\n"
+        f"- VARY the vocabulary, sentence structure, grammar style, and punctuation across tweets.\n"
+        f"- Some tweets should have minor typos, casual grammar, or abbreviations — others should be articulate.\n"
+        f"- VARY how the movie is referenced. Use different names like: {', '.join(MOVIE_VARIANTS)}. "
+        f"Not every tweet needs to name the movie at all — some can just say 'it' or 'this movie' if context is clear.\n"
+        f"- Do NOT add hashtags or @mentions.\n"
+        f"- Do NOT add emojis unless the original has them.\n"
+        f"- Keep each tweet roughly the same length as the original.\n"
+        f"- {repetition_warning}"
+        f"Output ONLY the rewritten tweets, numbered 1-{len(tweets_batch)}, one per line. "
+        f"Do NOT include the [toxicity=...] tag in your output.\n\n"
+        f"{numbered}"
+    )
+
+    response = client.chat.completions.create(
+        model=GROK_MODEL,
+        messages=[
+            {"role": "system", "content": "You are an expert editor helping make AI-generated tweet stimuli sound authentically human for academic research. Your rewrites should be indistinguishable from real social media posts."},
+            {"role": "user", "content": prompt},
+        ],
+        max_tokens=2000,
+        temperature=0.9,
+    )
+
+    # Parse numbered output
+    raw_output = response.choices[0].message.content.strip()
+    lines = raw_output.split("\n")
+    results = []
+    for line in lines:
+        line = line.strip()
+        # Match lines starting with a number and period/parenthesis
+        match = re.match(r"^\d+[\.\)]\s*(.+)$", line)
+        if match:
+            results.append(match.group(1).strip().strip('"'))
+
+    return results
+```
+
+```{python}
+#| label: rephrase-tweets
+#| output: false
+
+from tqdm import tqdm
+
+# Sort by toxicity so each batch contains tweets at similar levels —
+# this gives the LLM better context for preserving intensity
+df = df.sort_values("perspective_toxicity").reset_index(drop=True)
+
+original_texts = df["text"].tolist()
+original_scores = df["perspective_toxicity"].tolist()
+rephrased_texts = [""] * len(df)
+new_scores = [None] * len(df)
+kept_original = [False] * len(df)
+
+n_batches = (len(df) + BATCH_SIZE - 1) // BATCH_SIZE
+
+for batch_idx in tqdm(range(n_batches), desc="Rephrasing batches"):
+    start = batch_idx * BATCH_SIZE
+    end = min(start + BATCH_SIZE, len(df))
+    batch_texts = original_texts[start:end]
+    batch_orig_scores = original_scores[start:end]
+
+    for attempt in range(MAX_RETRIES + 1):
+        if attempt == 0:
+            rewritten = rephrase_batch(batch_texts, batch_orig_scores, repetition_warning)
+        else:
+            # Re-rephrase only the ones that drifted too much
+            retry_texts = []
+            retry_scores = []
+            retry_indices = []
+            for j in range(len(batch_texts)):
+                global_idx = start + j
+                if new_scores[global_idx] is None or abs(new_scores[global_idx] - batch_orig_scores[j]) > TOXICITY_TOLERANCE:
+                    retry_texts.append(original_texts[global_idx])
+                    retry_scores.append(batch_orig_scores[j])
+                    retry_indices.append(j)
+            if not retry_texts:
+                break
+            rewritten_retry = rephrase_batch(retry_texts, retry_scores, repetition_warning)
+            # Slot retried results back in
+            rewritten = list(rewritten)  # copy
+            for k, j in enumerate(retry_indices):
+                if k < len(rewritten_retry):
+                    rewritten[j] = rewritten_retry[k]
+
+        # Score all rephrased tweets in this batch
+        if len(rewritten) != len(batch_texts):
+            print(f"  Batch {batch_idx}: expected {len(batch_texts)} tweets, got {len(rewritten)} — keeping originals for missing")
+
+        for j in range(len(batch_texts)):
+            global_idx = start + j
+            if j < len(rewritten) and rewritten[j]:
+                scores = get_perspective_score(rewritten[j])
+                time.sleep(0.1)
+                if scores and scores["toxicity"] is not None:
+                    drift = abs(scores["toxicity"] - batch_orig_scores[j])
+                    if drift <= TOXICITY_TOLERANCE:
+                        rephrased_texts[global_idx] = rewritten[j]
+                        new_scores[global_idx] = scores["toxicity"]
+
+    # Fall back to originals for any that still failed
+    for j in range(len(batch_texts)):
+        global_idx = start + j
+        if not rephrased_texts[global_idx]:
+            rephrased_texts[global_idx] = original_texts[global_idx]
+            new_scores[global_idx] = batch_orig_scores[j]
+            kept_original[global_idx] = True
+
+df["original_text"] = df["text"]
+df["text"] = rephrased_texts
+df["new_perspective_toxicity"] = new_scores
+df["kept_original"] = kept_original
+
+n_rephrased = sum(1 for k in kept_original if not k)
+n_kept = sum(kept_original)
+display(Markdown(f"**Rephrased {n_rephrased} tweets**, kept {n_kept} originals (toxicity drifted too much)"))
+```
+
+## Step 4: Preview Results
+
+### Toxicity Drift
+
+```{python}
+#| label: drift-check
+
+drift = (df["new_perspective_toxicity"] - df["perspective_toxicity"]).abs()
+display(Markdown(f"**Toxicity drift stats** (|original - rephrased|):"))
+print(f"  Mean:   {drift.mean():.4f}")
+print(f"  Median: {drift.median():.4f}")
+print(f"  Max:    {drift.max():.4f}")
+print(f"  Within tolerance ({TOXICITY_TOLERANCE}): {(drift <= TOXICITY_TOLERANCE).sum()}/{len(df)}")
+```
+
+### Before vs. After Examples
+
+```{python}
+#| label: preview-examples
+
+sample_indices = df[~df["kept_original"]].sample(n=min(10, n_rephrased), random_state=SEED).index
+
+for idx in sample_indices:
+    row = df.loc[idx]
+    html = f"""
+    <div style="border-left: 3px solid #3498db; padding: 10px; margin: 10px 0; background: #f9f9f9;">
+        <small>toxicity: {row['perspective_toxicity']:.3f} &rarr; {row['new_perspective_toxicity']:.3f}
+        (drift: {abs(row['new_perspective_toxicity'] - row['perspective_toxicity']):.3f})</small>
+        <p style="margin: 5px 0 0 0; color: #888; text-decoration: line-through;">{row['original_text']}</p>
+        <p style="margin: 5px 0 0 0;">{row['text']}</p>
+    </div>
+    """
+    display(HTML(html))
+```
+
+### Final Distribution
+
+```{python}
+#| label: final-distribution
+
+bin_edges = np.linspace(0, 1, N_BINS + 1)
+counts, _ = np.histogram(df["new_perspective_toxicity"], bins=bin_edges)
+display(Markdown("**Final toxicity distribution:**"))
+for i, c in enumerate(counts):
+    bar = "#" * c
+    print(f"  [{bin_edges[i]:.1f} - {bin_edges[i+1]:.1f}]: {c:3d} {bar}")
+```
+
+### Full Dataset (Interactive)
+
+```{python}
+#| label: preview-table
+
+display_cols = ["text", "perspective_toxicity", "new_perspective_toxicity", "kept_original"]
+show(df[display_cols], pageLength=10, columnDefs=[{"width": "50%", "targets": 0}])
+```
+
+## Step 5: Assemble & Save
+
+```{python}
+#| label: save
+
+names = ["Emma", "Liam", "Sophia", "Noah", "Olivia", "Ethan", "Ava", "Lucas",
+         "Isabella", "Mason", "Mia", "Oliver", "Charlotte", "Elijah", "Amelia",
+         "James", "Harper", "Benjamin", "Evelyn", "Alexander"]
+
+n = len(df)
+
+# Sort by toxicity for sequence assignment
+df = df.sort_values("new_perspective_toxicity").reset_index(drop=True)
+
+# Generate random timestamps spread over the last few days
+base_time = pd.Timestamp.now()
+offsets = sorted(np.random.randint(10000, 300000, size=n))
+timestamps = [base_time - pd.Timedelta(seconds=int(o)) for o in offsets]
+
+# Assign random usernames (consistent per tweet)
+usernames = [random.choice(names) for _ in range(n)]
+
+output = pd.DataFrame({
+    "doc_id": range(1, n + 1),
+    "datetime": [t.strftime("%d.%m.%y %H:%M") for t in timestamps],
+    "text": df["text"].values,
+    "media": "",
+    "alt_text": "",
+    "likes": np.random.randint(0, 301, size=n),
+    "reposts": np.random.randint(0, 101, size=n),
+    "replies": np.random.randint(0, 201, size=n),
+    "username": usernames,
+    "handle": [u.lower() for u in usernames],
+    "user_description": "Perspective's Score: " + df["new_perspective_toxicity"].astype(str),
+    "user_image": "https://www.nicepng.com/png/full/136-1366211_group-of-10-guys-login-user-icon-png.png",
+    "user_followers": np.random.randint(0, 2001, size=n),
+    "sponsored": 0,
+    "target": "",
+    "condition": "A",
+    "sequence": range(1, n + 1),
+    "commented_post": 0,
+    "source": df["model"].values if "model" in df.columns else "grok-3",
+    "fixed_position": np.nan,
+    "toxicity": df["new_perspective_toxicity"].values,
+})
+
+# --- Fixed-position sponsored posts ---
+# Add these rows here. They are injected at the specified feed slot regardless
+# of condition or toxicity sampling. Edit content freely; do not change doc_id.
+fixed_posts = pd.DataFrame([
+    {
+        "doc_id": 9999,
+        "datetime": pd.Timestamp.now().strftime("%d.%m.%y %H:%M"),
+        "text": "M&M'S. It's More Fun Together.",
+        "media": "ads/mms-ad.jpg",
+        "alt_text": "",
+        "likes": 160,
+        "reposts": 23,
+        "replies": 95,
+        "username": "M&M'S",
+        "handle": "mmschocolate",
+        "user_description": "One for all & all for fun! Making chocolate for all funkind since 1941.",
+        "user_image": "https://pbs.twimg.com/profile_images/1484725155821756420/ZeclBrZI_400x400.png",
+        "user_followers": 206630,
+        "sponsored": 1,
+        "target": "https://www.mms.com/en-us",
+        "condition": "A",
+        "sequence": 14,
+        "commented_post": 0,
+        "source": "sponsored",
+        "fixed_position": 14,
+        "toxicity": 0,
+    },
+])
+
+output = pd.concat([output, fixed_posts], ignore_index=True)
+
+# Save to DICE app data directory
+OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+output.to_csv(OUTPUT_PATH, index=False)
+
+display(Markdown(f"**Saved {n} tweets to `{OUTPUT_PATH}`**"))
+display(Markdown(f"Distribution: {N_BINS} bins, ~{TWEETS_PER_BIN} per bin"))
+```

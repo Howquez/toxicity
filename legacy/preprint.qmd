@@ -1,0 +1,176 @@
+---
+title: "Toxicity Is Bad for Whom?"
+subtitle: "Divergent Interests in Algorithmic Content Curation"
+running-head: "Roggenkamp & Goergen (2026)"
+author:
+  - name: Hauke Roggenkamp
+    email: hauke.roggenkamp@unisg.ch
+    orcid: 0009-0005-5176-4718
+    affiliation:
+      - ref: 1
+  - name: Jonas Goergen
+    orcid: 0000-0002-6263-1532
+    affiliation:
+      - ref: 2
+affiliations:
+  - id: 1
+    name: ETH Zurich
+    department: Department of Management, Technology, and Economics
+  - id: 2
+    name: Kedge Business School
+    department: Department of Marketing
+    
+knitr:
+  opts_chunk:
+    dev: "ragg_png"
+    dpi: 300
+  
+abstract: |
+  Placeholder text: we analyze 12,847 social media posts across 73 countries and find that platform algorithms increase user dwell time by 2.3 minutes per toxic post. Brands experience 67% higher conversion rates when adjacent to moderately toxic content, but suffer 19% reputation decline at toxicity scores exceeding 0.82. Machine learning models predict optimal toxicity thresholds with 91% accuracy across seven product categories.
+categories: [toxicity, marketing, science]
+# authornote: |
+date: last-modified
+bibliography: ../../literature/_references.bib
+format:
+  preprint-typst:
+    execute:      
+      echo: false      
+      warning: false 
+    linkcolor: "blue"
+    link-citations: true
+    wordcount: true
+    citeproc: true
+    # Common options - uncomment to use
+    theme: jou                   # Journal theme (2-column)
+    # line-number: true            # Line numbering
+    fontsize: 11pt               # Font size
+    leading: 0.6em               # Line spacing
+---
+
+```{r packages_CRAN}
+#| warning: false
+# use rix at some point: https://github.com/ropensci/rix
+
+options(repos = c(CRAN = "https://cloud.r-project.org")) 
+
+if (!requireNamespace("groundhog", quietly = TRUE)) {
+  install.packages("groundhog")
+}
+
+pkgs <- c("magrittr", "data.table", "ggplot2")
+
+groundhog::groundhog.library(pkg = pkgs,
+                             date = "2026-01-01") # R-4.4.1
+
+rm(pkgs)
+```
+
+```{r set-seed}
+set.seed(230691)
+```
+
+```{r simulate-data}
+n <- 400
+sim <- data.table(n_toxic = rep_len(x = seq(from = 0, to = 30, by = 1), length.out = n))
+sim[, engagement := 25 + 10 * n_toxic -  0.33 * n_toxic^2 + rnorm(n, mean = 0, sd = 30)]
+sim[engagement < 0, engagement := 0]
+```
+
+```{r read-data}
+processed <- fread(file = "../../data/processed/headlines_with_txicity_scores.csv")
+```
+
+
+```{=typst}
+#set par(first-line-indent: 0em)
+```
+
+Social media platforms face a fundamental tension: they must moderate content to maintain advertiser relationships while maximizing user engagement to generate revenue [@AridorEtAl_2024]. Platforms deploy algorithms to curate content and increase time spent, which serves as a key metric for platform success and revenue generation. However, if these algorithms select content purely based on engagement potential, they may amplify socially harmful content such as hate speech, misinformation, and toxic language rather than suppress it.
+
+```{=typst}
+#set par(first-line-indent: 1em)  // Reset to normal
+```
+
+We investigate this tension by examining three distinct perspectives on toxic content. First, from the platform's perspective (absent brand safety concerns), we ask whether toxic content increases user engagement and time spent on the platform, which would create incentives to tolerate or amplify such content. Second, from the advertiser's perspective, we examine how feed toxicity affects brand outcomes including engagement with sponsored content, brand recall, and brand reputation. Third, from the platform's perspective (incorporating brand safety concerns), we _somehow_ consider how advertiser withdrawal in response to toxic environments constrains platform revenue, even when user engagement remains high.
+[This research directly addresses the special issue's [call](https://www.sciencedirect.com/special-issue/322923/brand-safety-in-digital-environments) to understand "_the risks and rewards of using artificial intelligence for content moderation_" and "_the potential benefits of brand safety incidents or presence in unsafe environments_."]{style="background-color:yellow"}
+
+Our research proceeds in two stages. First, we analyze news headlines from Upworthy.com [@MatiasEtAl_2021] and provide field evidence that toxic content systematically captures more attention than civil alternatives [@Roggenkamp_2025]. Specifically, headlines reaching toxicity thresholds show 9.9% higher click-through rates even when advertising identical articles.
+
+Second, we conduct experiments with DICE [@DICE_2025], exposing participants to social media feeds with 30 organic posts and one sponsored post. We manipulate toxicity by varying the number of toxic organic posts [0, 30] between participants. Doing so we follow a stimulus sampling procedure, where, for each participant, we randomly sample the 30 organic posts from a set of 90 (toxic and civil) posts.
+
+Our envisioned results suggest an inverted-U relationship for both platform engagement and brand outcomes (see @fig-sim-inverted-u). At low toxicity levels, attention-capturing mechanisms increase both time spent on the platform and engagement with sponsored content. At moderate levels, platforms achieve high user engagement while brands may benefit from increased attention. However, at high toxicity levels, user engagement declines (due to aversion or platform abandonment) and brand outcomes deteriorate sharply (due to negative associations and reputational concerns). From a brand safety perspective, these findings indicate that moderate toxicity levels may be acceptable or even beneficial for brand outcomes, challenging conventional wisdom about unsafe environments.
+
+
+```{r}
+#| label: fig-sim-inverted-u
+#| fig-cap: "Engagement with sponsored content exhibits an inverted-U relationship with feed toxicity. Points represent individual observations; line shows local polynomial smoothing."
+ggplot(data = sim,
+       mapping = aes(x = n_toxic, y = engagement)) +
+  geom_point(alpha = 0.33) +
+  geom_smooth(method = "loess", formula = "y ~ x", col = "#000000", fill = "#000000") +
+  coord_cartesian(ylim = c(0, NA),
+                  xlim = c(0, 31),
+                  expand = FALSE) +
+  geom_hline(yintercept = 0) +
+  labs(x = "Number of Toxic Posts in Feed",
+       y = "Some Engagement Metric of Sponsored Post") +
+  theme_minimal()
+```
+
+The three perspectives yield different preferences for toxicity levels. The platform's engagement-maximizing preference (ignoring brand safety) favors higher toxicity levels where user time spent remains elevated. Advertisers prefer lower toxicity levels that protect brand reputation while maintaining reasonable engagement with sponsored content. However, advertisers have a tolerance threshold beyond which they withdraw advertising spend. The platform's revenue-maximizing strategy must therefore balance engagement gains against advertiser flight risk. While our experimental setting may not perfectly replicate real-world platform dynamics, it allows us to demonstrate that these perspectives systematically diverge and to identify the general pattern of how toxicity affects each stakeholder differently [see @Beknazar-YuzbashevJiménez-DuránMateusz_2024 for a theoretical account]. 
+
+This aligns with anecdotal evidence of advertiser responses: when Elon Musk announced plans to relax Twitter's content moderation policies in 2022, GroupM, the world's largest media buyer, classified Twitter as a "high-risk platform," leading many luxury brands like Balenciaga to pause or cease their advertising [@AndresRossiTremblay_2023]. More generally, research shows that advertisers bid more when they know their ads will appear in "brand-safe" contexts [@AdaEtAl_2022].
+
+Our research contributes to understanding the strategic interplay between platforms, advertisers, and users in digital environments where engagement-maximizing algorithms may promote toxic content. ...
+
+The remainder of this article proceeds as follows. We begin by reviewing the theoretical foundations of toxicity in digital environments, examining how platform business models create incentives that may diverge from advertiser interests and surveying prior research on toxic content and user engagement. We then present X empirical studies. Study 1 analyzes field data from 12,473 A/B tests of news headlines to establish that toxic content systematically captures more attention than civil alternatives, even when advertising identical articles. Studies 2-X employ controlled experiments with simulated social media feeds to test whether the relationship between toxicity and engagement follows an inverted-U pattern and to measure effects on brand outcomes including recall, attitude, and click-through rates. We conclude with a discussion of practical implications for platforms, advertisers, and policymakers as well as limitations and future research.
+
+
+# Experimental Design
+
+Toxicity rarely exists in isolation from other message features. Manipulating toxicity in an experimental therefore creates a methodological challenge as one might risk to not only manipulate the construct of interest (toxicity) but also latent variables. In creating a civil alternative to a toxic social media post by removing toxic elements may also change other dimensions such as emotional intensity, controversy, argument quality, target specificity, or certainty. For instance, transforming _"these idiots pushing vaccine mandates are destroying our freedom"_ into a civil version requires decisions about whether to preserve the accusatory framing, the emotional intensity, or the absolutist claim. Any such transformation risks conflating toxicity with these other message dimensions, of which some are latent and unknown to the researcher. 
+
+A matched-pairs approach thus creates an internal validity problem because we cannot confidently attribute observed effects to toxicity rather than to the features that necessarily changed alongside it. Stimulus sampling [@SimonsohnMontealegreEvangelidis_2025] offers an alternative: instead of trying to control for all potential confounds through careful matching, we treat stimuli as a random factor and sample broadly enough that idiosyncratic features vary independently of the toxicity manipulation.
+
+We implement stimulus sampling through a dose-response design where participants view feeds composed of multiple tweets randomly drawn from larger pools. Specifically, we create two large pools of tweets addressing the same topic: one pool contains toxic tweets, the other contains non-toxic tweets in the domain of [x]{style="background-color:yellow"}. Participants are assigned to conditions that vary in the proportion of toxic content (ranging from 0 to 100%), and each participant's feed is populated by randomly sampling the specified number of tweets from each pool. For example, a participant with a 50% toxicity dose views 10 randomly selected tweets from the toxic pool and 10 randomly selected tweets from the non-toxic pool. Critically, different participants in the same dose condition see different specific tweets. This design ensures that potential confounds such as controversy or emotional intensity vary within both pools and are distributed across participants through random sampling. If we observe a dose-response relationship where engagement responds to the toxicity doses, this effect cannot be attributed to any single confounding feature of particular tweets because different participants encountered different combinations of such features. The systematic difference across doses is the proportion of toxic content, not any specific content characteristic.
+
+While stimulus sampling effectively handles confounds between toxicity and other message features, it does not solve problems arising from strong partisan or identity-based reactions to the topic itself. If participants hold extreme positions on a topic, their engagement responses might already reach maximum or minimum values based on their agreement or disagreement with the stance expressed, independent of how that stance is communicated. For example, participants who strongly oppose a policy might refuse to engage with any content supporting it regardless of whether that content is expressed toxically or civilly, producing a floor effect. Conversely, participants might eagerly engage with any content attacking their outgroup whether that attack is toxic or civil, producing a ceiling effect. In either case, the toxicity manipulation has insufficient room to produce detectable effects because identity-based reactions to the topic dominate the response. 
+[Even if we successfully isolate toxicity from stance through stimulus sampling, we won't detect its effect if stance reactions are so strong that they saturate the response scale.]{style="background-color:yellow"}
+
+The ideal topic allows for genuine disagreement and emotional investment but avoids extreme tribal activation. Participants should care enough to have preferences but not so intensely that their reactions saturate the response scale. Additionally, the topic must generate sufficient naturally occurring discourse to populate both toxic and civil stimulus pools, must be relevant to brand safety concerns, and must be sufficiently familiar to participants that they can form informed judgments about both content and brand adjacency.
+
+So maybe, some topic from the Prolific Reddit Thread might be a good candidate?
+
+# New
+
+Aridor et al. model the platform's problem as choosing personalized content for each user:
+
+$$\max_{\{x_i\}_i \subseteq \cup_j x^p_j} \sum_{i} \omega(x_i) \times t_i(x_i)$$
+
+where the platform selects for each user $i$ a subset $x_i$ from all produced posts to maximize revenue. Here, $x_i \in \mathbb{R}^K$ is a vector of post characteristics (sentiment, topic, format, etc.), $t_i(x_i)$ represents time spent, and $\omega(x_i)$ represents monetary gains per unit time.
+
+**Incorporating toxicity:** Toxicity is one characteristic of content. Let $\tau_i = \tau(x_i)$ denote the toxicity level in user $i$'s feed. The platform's revenue is:
+
+$$\text{Revenue} = \sum_{i} \omega(x_i) \times t_i(x_i)$$
+
+To isolate the effect of toxicity, we examine how revenue changes when toxicity varies while holding other content characteristics constant. Applying the chain rule:
+
+$$\frac{\partial \text{Revenue}_i}{\partial \tau_i} = \omega(x_i) \times \frac{\partial t_i}{\partial x_i} \cdot \frac{\partial x_i}{\partial \tau_i} + t_i(x_i) \times \frac{\partial \omega}{\partial x_i} \cdot \frac{\partial x_i}{\partial \tau_i}$$
+
+For notational simplicity, we write $\frac{\partial t_i}{\partial \tau_i}$ to denote $\frac{\partial t_i}{\partial x_i} \cdot \frac{\partial x_i}{\partial \tau_i}$, the total effect of toxicity on engagement through content changes:
+
+$$\frac{\partial \text{Revenue}_i}{\partial \tau_i} = \omega(x_i) \times \frac{\partial t_i}{\partial \tau_i} + t_i(x_i) \times \frac{\partial \omega}{\partial \tau_i}$$
+
+Two competing forces emerge:
+
+1. Engagement effect: $\frac{\partial t_i}{\partial \tau_i}$ captures how time spent responds to changes in feed toxicity—we expect an inverted U-shape.
+2. Brand safety effect: $\frac{\partial \omega}{\partial \tau_i}$ captures how advertiser willingness to pay responds to feed toxicity. If real, $\frac{\partial \omega}{\partial \tau_i} < 0$. If an artifact, $\frac{\partial \omega}{\partial \tau_i} \approx 0$.
+
+Our hypothesis: The second term equals zero because brand attitudes remain unchanged, allowing platforms to optimize engagement alone without concern for advertiser flight.
+
+
+# References
+
+:::{#refs}
+:::
+

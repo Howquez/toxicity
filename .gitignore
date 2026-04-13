@@ -26,8 +26,31 @@ stimuli/output/
 # OS files
 .DS_Store
 Thumbs.db
+Icon?
 
 # IDE
 .idea/
 .vscode/
 *.swp
+.Rproj.user
+
+# R
+.Rhistory
+.Rapp.history
+
+# Participant data (privacy / GDPR)
+pilot-dice/data/raw/
+
+# Copyrighted PDFs — track .bib only
+literature/*.pdf
+
+# Large generated data files (reproducible from simulate.qmd)
+data/simulations/simulations.csv
+data/simulations/power_sim_*.csv
+
+# Large R model objects
+*.RData
+
+# Upworthy raw data and intermediate batch files (large / reproducible)
+study-1-upworthy/data/raw/
+study-1-upworthy/data/processed/batches/

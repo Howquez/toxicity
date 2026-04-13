@@ -1,0 +1,512 @@
+---
+title: "Toxicity Drives Online News Consumption"
+author:
+- name: Hauke Roggenkamp [![](../misc/orcid.png){width=1.8%}](https://orcid.org/0009-0005-5176-4718)
+  email: Hauke.Roggenkamp@unisg.ch
+  orcid: 0009-0005-5176-4718
+  corresponding: true
+  affiliations:
+    - name: Institute of Behavioral Science and Technology, University of St. Gallen
+      address: Torstrasse 25
+      city: St. Gallen
+      country: Switzerland
+      postal-code: 9000
+- name: Jonas Görgen [![](../misc/orcid.png){width=1.8%}](https://orcid.org/0000-0002-6263-1532)
+  email: Jonas.Goergen@unisg.ch
+  orcid: 0000-0002-6263-1532
+  corresponding: true
+  affiliations:
+    - name: Institute of Behavioral Science and Technology, University of St. Gallen
+      address: Torstrasse 25
+      city: St. Gallen
+      country: Switzerland
+      postal-code: 9000
+date: now
+date-format: long
+format:
+  pdf:
+    # classoption: twocolumn
+    include-in-header:
+      text: |
+        \usepackage{titling}
+        \usepackage{sectsty}
+        \usepackage{lettrine}
+        \usepackage{amsmath}
+        \renewcommand{\LettrineTextFont}{\normalfont}
+        \allsectionsfont{\rmfamily}
+        \renewcommand{\familydefault}{\rmdefault}
+        \pretitle{\begin{center}\LARGE\rmfamily}
+        \posttitle{\end{center}}
+        \predate{\begin{center}\rmfamily}
+        \postdate{\end{center}}
+#        \setlength{\parindent}{0.25in}
+#        \setlength{\parskip}{0pt}
+        
+# format:
+#   html:
+#     embed-resources: true
+#     theme: cosmo
+#     code-line-numbers: true
+toc: false
+number-sections: false
+fig-cap-location: top
+execute:
+  echo: false
+  warning: false
+bibliography: ../literature/_references.bib
+abstract: |
+  We examine the economic tensions underlying content moderation decisions on social media platforms. Specifically, we investigate a fundamental paradox: toxic content that creates negative externalities for society may drive higher user engagement while simultaneously deterring advertisers concerned with brand safety. Analyzing over 53,000 headline variations from randomized controlled trials on Upworthy—a platform that created clickbait content specifically optimized for social media sharing—we find that headlines with higher likelihood of rejection by content moderators generate significantly greater user engagement, with each standard deviation increase in rejection likelihood corresponding to approximately 2% higher click-through rates. To further explain this "toxicity premium," we employ two complementary Digital In-Context Experiments. The first experiment tests whether varying levels of feed toxicity reveal a theorized non-monotonic relationship with user engagement. The second uses an incentive-compatible design to map advertisers' bidding responses to content toxicity. By studying these competing dynamics, we provide insights into the economic mechanisms driving platform content moderation decisions and contribute to the growing discourse on digital governance, demonstrating how platforms must navigate trade-offs between engagement optimization, societal welfare, and brand safety concerns.
+---
+
+<!-- # Setup -->
+
+```{r packages_CRAN}
+#| warning: false
+
+options(repos = c(CRAN = "https://cloud.r-project.org")) 
+
+if (!requireNamespace("groundhog", quietly = TRUE)) {
+  install.packages("groundhog")
+}
+
+pkgs <- c("magrittr", "data.table", "stargazer", "ggplot2",
+          "remotes", "osfr", "knitr", "stringr", "broomExtra",
+          "dotenv", "usethis", "devtools",
+          "quanteda", "quanteda.textstats",
+          "lme4", "gtsummary")
+
+groundhog::groundhog.library(pkg = pkgs,
+                             date = "2025-01-01") # R-4.4.1
+
+groundhog::groundhog.library(pkg = "favstats/peRspective",
+                             date = "2025-01-01") # R-4.4.1
+
+rm(pkgs)
+```
+
+```{r data_exist}
+data_exists <- file.exists("../data/processed/headlines_with_txicity_scores.csv")
+```
+
+```{r models_exist}
+models_exists <- file.exists("../models/regression-models-rejection-likelihood.RData")
+```
+
+```{r auth}
+dotenv::load_dot_env(file = "../.env")
+# usethis::edit_r_environ() # run this once. for perspective API paste: perspective_api_key="[the output of Sys.getenv("perspective_api_key")]"
+```
+
+```{r plot_layout}
+#| eval: true
+#| echo: false
+#| warning: false
+
+layout <- theme(panel.background = element_rect(fill = "white"),
+                legend.key = element_rect(fill = "white"),
+                panel.grid.major.x = element_line(colour = "grey", 
+                                                  linewidth = 0.25),
+                axis.ticks.y = element_blank(),
+                panel.grid.major.y = element_blank(),
+                axis.line.x.bottom = element_line(colour = "#000000", 
+                                                  linewidth = 0.5),
+                axis.line.y.left = element_blank(),
+                plot.title = element_text(size = rel(1))
+)
+```
+
+```{r plot_colors}
+c_orange <- "#F0941F"
+c_teal   <- "#196774"
+
+scale_color_custom_d <- function() {
+  scale_color_manual(values = c(c_orange, c_teal))
+}
+
+scale_fill_custom_d <- function() {
+  scale_fill_manual(values = c(c_orange, c_teal))
+}
+```
+
+
+```{r read_processed_data}
+#| output: false
+
+# GUID of processed data from Reiss & Roggenkamp (2024)
+guid <- "cax4k"
+filename <- "../data/processed/robustness_final.csv"
+
+# Check if the file already exists
+if(!file.exists(filename)) {
+  # File doesn't exist, so download it
+  osf_retrieve_file(guid) %>%
+  osf_download(path = "../data/processed/")
+}
+
+headlines <- data.table::fread(file = filename) # %>% head(20000)
+```
+
+<!-- # Read Data -->
+
+Here, we read data from [@ReissRoggenkamp_2025], a robustness reproduction of @RobertsonEtAl_2023 based on the data from _Upworthy_ provided by @MatiasEtAl_2021. 
+
+Upworthy represents a significant case study in media optimization through experimental methods. Rising to prominence as the "fastest-growing media company globally," Upworthy's content achieved greater Facebook dissemination than all U.S. mainstream media combined. The company pioneered the systematic implementation of randomized controlled trials (RCTs) in digital publishing. Upworthy's experimental infrastructure implemented a comprehensive testing protocol whereby all content underwent randomized trials before wide distribution. Editorial teams typically generated multiple headline variations for experimental comparison. The system measured click-through rates across different "packages" (headline-image combinations, see @fig-example), with highest-performing variants selected for broader dissemination.
+
+```{r}
+n_experiments <- headlines[, length(unique(clickability_test_id))] %>% formatC(big.mark = ",")
+n_headlines   <- headlines[, length(unique(unique_identifier))] %>% formatC(big.mark = ",")
+n_impressions <- headlines[, sum(impressions)] %>% formatC(big.mark = ",")
+n_clicks      <- headlines[, sum(clicks)] %>% formatC(big.mark = ",")
+```
+
+The Upworthy Research Archive [@MatiasEtAl_2021] documents this experimental corpus: we retrieve `r n_experiments` A/B tests containing `r n_headlines` experimental conditions, accounting for `r n_impressions` impressions and `r n_clicks` clicks that were recorded between January 2013 and April 2015.
+
+Unlike the predominant correlational analyses of online behavior or decontextualized laboratory studies, this dataset enables rigorous causal inference regarding content presentation and audience engagement in an ecologically valid digital environment. The archive's scale facilitates precise effect size estimation of linguistic variations (including valence dimensions) on consumption metrics.
+
+The methodological approaches pioneered by Upworthy subsequently influenced algorithmic policies of major platforms and informed content optimization strategies across the digital media landscape. At its apex, Upworthy's reach exceeded established legacy publications like The New York Times. This archive thus provides scholars with unprecedented access to experimentally-derived engagement data at scale, offering opportunities to investigate causal mechanisms in digital content consumption.
+
+![Reconstruction of one test in 2013 that was composed of different tested packages. For this particular test, 3 different headlines were compared and the image was kept constant.](../misc/41597_2021_934_Fig1_HTML.png){#fig-example fig-align="center"}
+
+
+# Toxicity Prediction
+
+The Perspectives API, developed by Jigsaw and Google, represents a methodologically sophisticated approach to content moderation based on human perception of text attributes. Unlike simplistic rule-based systems, this API utilizes machine learning models trained on millions of comments from diverse online forums including Wikipedia and The New York Times across various languages. The methodological foundation of the API rests on a rigorous human annotation process where between three and ten raters evaluate each comment according to structured guidelines, determining whether content contains attributes such as toxicity, threats, or identity-based attacks.
+
+This human-centered approach to training creates a uniquely interpretable output: scores ranging from 0 to 1 represent the proportion of human raters who would classify a given piece of content as containing the attribute in question. For instance, a toxicity score of 0.3 indicates that approximately 30% of human raters would consider the content toxic. This probabilistic interpretation bridges computational efficiency with human judgment, making the API particularly valuable for research applications where nuanced understanding of content perception is required.
+
+The Perspectives API has gained significant adoption among major platforms and researchers due to its real-world applicability. Content moderators utilize these scores to prioritize review queues, while platform designers implement thresholds to trigger user feedback mechanisms. The widespread implementation of this API in production environments provides ecological validity to research utilizing these measures, as they directly correspond to actual moderation systems deployed across the internet. This alignment between research metrics and real-world moderation practices offers a methodological advantage when studying the relationship between potentially problematic content and user engagement.
+
+```{r predict_toxicity_batches}
+#| eval: !expr "!data_exists"
+
+# Set up parameters
+batch_size <- 5000
+n_rows <- nrow(headlines)
+n_batches <- ceiling(n_rows / batch_size)
+output_dir <- "../data/processed/batches"
+
+# Process in batches and save each one immediately
+for (i in 8:n_batches) {
+  # Calculate batch indices
+  start_idx <- ((i - 1) * batch_size) + 1
+  end_idx <- min(i * batch_size, n_rows)
+  
+  # Extract the current batch
+  current_batch <- headlines[start_idx:end_idx]
+  
+  # Process the current batch
+  batch_results <- prsp_stream(
+    .data = current_batch,
+    text = headline,
+    text_id = unique_identifier,
+    languages = "en",
+    score_model = peRspective::prsp_models
+  )
+  
+  # Save this batch immediately
+  batch_filename <- file.path(output_dir, paste0("headlines_toxicity_batch_", i, ".csv"))
+  fwrite(x = batch_results, file = batch_filename)
+  
+  # Clear the batch results to free memory
+  rm(batch_results)
+  gc()
+}
+```
+
+```{r rbind_data}
+#| eval: !expr "!data_exists"
+batches_path <- list.files(path = output_dir, full.names = TRUE)
+batches_list <- list()
+
+for(i in 1:length(batches_path)){
+  batch <- fread(batches_path[i])
+  batches_list[[i]] <- batch
+}
+
+toxicity_scores <- rbindlist(l = batches_list)
+```
+
+
+<!-- # Merge and Pre-Process -->
+
+```{r}
+#| eval: !expr "!data_exists"
+processed <- merge.data.table(
+  x = headlines,
+  y = toxicity_scores, 
+  by = "unique_identifier"
+  )
+```
+
+
+```{r z-standardize}
+#| eval: !expr "!data_exists"
+processed[, toxicity := scale(x = TOXICITY, center = TRUE, scale = TRUE)]
+processed[, severe_toxicity := scale(x = SEVERE_TOXICITY, center = TRUE, scale = TRUE)]
+processed[, identity_attack := scale(x = IDENTITY_ATTACK, center = TRUE, scale = TRUE)]
+processed[, insult := scale(x = INSULT, center = TRUE, scale = TRUE)]
+processed[, profanity := scale(x = PROFANITY, center = TRUE, scale = TRUE)]
+processed[, secually_explicit := scale(x = SEXUALLY_EXPLICIT, center = TRUE, scale = TRUE)]
+processed[, threat := scale(x = THREAT, center = TRUE, scale = TRUE)]
+processed[, inflammatory := scale(x = INFLAMMATORY, center = TRUE, scale = TRUE)]
+processed[, unsubstantial := scale(x = UNSUBSTANTIAL, center = TRUE, scale = TRUE)]
+processed[, likely_to_reject := scale(x = LIKELY_TO_REJECT, center = TRUE, scale = TRUE)]
+```
+
+```{r write-data}
+#| eval: !expr "!data_exists"
+fwrite(x = processed, file = "../data/processed/headlines_with_txicity_scores.csv")
+```
+
+```{r read_data}
+processed <- fread(file = "../data/processed/headlines_with_txicity_scores.csv")
+```
+
+# Rejection Likelihood
+
+These attributes are experimental because they are trained on a single source of comments—New York Times (NYT) data tagged by their moderation team—and therefore may not work well for every use case. [The rejection likelihood is one of these variables and is defined as an] overall measure of the likelihood for the comment to be rejected according to the NYT’s moderation.
+
+```{r}
+processed[LIKELY_TO_REJECT > 0.95, .(headline, LIKELY_TO_REJECT)] %>% 
+  unique() %>% 
+  head(n = 10) %>% 
+  kable(digits = 3,
+        col.names = c("Headlines", " Rejection Likelihood"))
+```
+
+```{r}
+ggplot(data = processed,
+       mapping = aes(x = LIKELY_TO_REJECT)) +
+  theme_minimal() +
+  geom_vline(xintercept = processed[, mean(LIKELY_TO_REJECT, na.rm = TRUE)]) +
+  geom_vline(xintercept = processed[, mean(LIKELY_TO_REJECT, na.rm = TRUE)] +
+               processed[, sd(LIKELY_TO_REJECT, na.rm = TRUE)], lty = 2) +
+  geom_vline(xintercept = processed[, mean(LIKELY_TO_REJECT, na.rm = TRUE)] -
+               processed[, sd(LIKELY_TO_REJECT, na.rm = TRUE)], lty = 2) +
+  geom_hline(yintercept = 0) +
+  coord_cartesian(ylim = c(0, NA), expand = FALSE) +
+  geom_density(fill = "#af002a", alpha = 0.66, bw = 0.033) +
+  labs(y = "Density", x = "Predicted likelihood to be rejected", title = "Headline's predicted likelihood to be rejected by the NYT's content moderation team\nplus/minus one standard deviation")
+```
+
+# Methods
+
+Our goal is to examine how content rejection likelihood influences user engagement. Hence, we use the Perspectives API's rejection likelihood scores and follow a multilevel modeling approach to analyze the data: We estimate the effect of rejection likelihood on the CTR ($\theta_{ij}$) and capture between-experiment heterogeneity through a multi-level structure. We start by specifying the random intercept, random slopes model in Equation 1. We also control for other characteristics across headline variations, namely negativity, length, text complexity and the relative age of a headline. The first regression model is then given by
+
+$$
+\text{logit}(\theta_{ij}) = \alpha + \alpha_i + \beta_1 \text{Rejection Likelihood}_{ij} + \beta_2 \text{Negativity}_{ij} + \mathbf{X}_{ij}' \boldsymbol{\gamma}
+$$
+
+where $j$ denotes a headline variation in an RCT $i$ ($i$ = 1, ... , N). The vector $\boldsymbol{\gamma}$ represents the effects of length, text complexity and the relative age of a headline, which are captured in the transposed vector $\mathbf{X}_{ij}'$.
+
+Second, we estimate a more flexible specification in Equation 2, that is, a random intercept model with random slopes ($\beta_{1i}$ and $\beta_{2i}$) to allow the receptivity to different content characteristics to vary across news articles (for example, if the effect of rejection likelihood differs between political and entertainment news).
+
+$$
+\text{logit}(\theta_{ij}) = \alpha + \alpha_i + (\beta_{1} + \beta_{1i}) \text{Rejection Likelihood}_{ij} + (\beta_{2} + \beta_{2i}) \text{Negativity}_{ij} + \mathbf{X}_{ij}' \boldsymbol{\gamma}
+$$
+
+Additionally, we explore potential interaction effects between rejection likelihood and negativity. Here, we specify the more complex model with random slopes. The fixed slope model is similar but omits $\beta_{1i}$ and $\beta_{2i}$.
+
+\begin{align*}
+\text{logit}(\theta_{ij}) = &\alpha + \alpha_i + \\
+&(\beta_{1} + \beta_{1i}) \text{Rejection Likelihood}_{ij} + \\
+&(\beta_{2} + \beta_{2i}) \text{Negativity}_{ij} + \\
+&\beta_3 \text{Rejection Likelihood}_{ij} \times \text{Negativity}_{ij} + \\
+&\mathbf{X}_{ij}' \boldsymbol{\gamma}
+\end{align*}
+
+Importantly, the Perspectives API calculates rejection likelihood scores that represent the probability a piece of content would be rejected by the New York Times moderation team. These scores range from 0 to 1, with higher values indicating greater probability of rejection. Unlike lexical approaches, the Perspectives API predicts scores based on human annotation patterns, providing a nuanced measure of content characteristics that might trigger platform governance mechanisms.
+
+```{r}
+#| eval: !expr "!models_exists"
+rifs_1 <- lme4::glmer(cbind(clicks, impressions - clicks) ~ likely_to_reject + length + complexity + platform_age + (1 | clickability_test_id), 
+                     data = processed, 
+                     family = binomial(link = "logit"))
+
+rirs_1 <- lme4::glmer(cbind(clicks, impressions - clicks) ~ likely_to_reject + length + complexity + platform_age + (1 + likely_to_reject | clickability_test_id), 
+                     data = processed, 
+                     family = binomial(link = "logit"))
+
+rifs_2 <- lme4::glmer(cbind(clicks, impressions - clicks) ~ likely_to_reject + gpt4o_negemo + length + complexity + platform_age + (1 | clickability_test_id), 
+                     data = processed, 
+                     family = binomial(link = "logit"))
+
+rirs_2 <- lme4::glmer(cbind(clicks, impressions - clicks) ~ likely_to_reject + gpt4o_negemo + length + complexity + platform_age + (1 + likely_to_reject + gpt4o_negemo| clickability_test_id), 
+                     data = processed, 
+                     family = binomial(link = "logit"))
+
+rifs_3 <- lme4::glmer(cbind(clicks, impressions - clicks) ~ likely_to_reject * gpt4o_negemo + length + complexity + platform_age + (1 | clickability_test_id), 
+                     data = processed, 
+                     family = binomial(link = "logit"))
+
+rirs_3 <- lme4::glmer(cbind(clicks, impressions - clicks) ~ likely_to_reject * gpt4o_negemo + length + complexity + platform_age + (1 + likely_to_reject + gpt4o_negemo| clickability_test_id), 
+                     data = processed, 
+                     family = binomial(link = "logit"))
+
+```
+
+```{r save_models}
+#| eval: !expr "!models_exists"
+save(rifs_1, rifs_2, rifs_3, rirs_1, rirs_2, rirs_3, 
+     file = "../models/regression-models-rejection-likelihood.RData")
+```
+
+```{r load_models}
+load(file = "../models/regression-models-rejection-likelihood.RData")
+```
+
+# Results
+
+
+```{r tbl-blind-results}
+#| label: tbl-rejection-likelihood
+#| tbl-cap: caption goes here
+#| results: asis
+
+stargazer(rifs_1, rifs_2, rifs_3, rirs_1, rirs_2, rirs_3,
+          dep.var.caption  = "log(Odds Ratio)",
+          dep.var.labels   = "Click-through rate (CTR)",
+          # column.labels   = c("Original", "Blind without stemming", "Blind with stemming"),
+          # column.separate = c(2, 2, 2),
+          covariate.labels = c("Rejection Likelihood", "Negativity", "Interaction"),
+          add.lines = list(c("Random Slopes?", rep(c("No", "Yes"), each = 3))),
+          keep = c("likely_to_reject", "gpt4o_negemo", "toxicity:gpt4o_negemo"),
+          omit.stat = c("bic", "ll"),
+          star.cutoffs = c(0.05, 0.01, 0.001),
+          font.size = "scriptsize",
+          notes = c("Standard errors in parentheses.", 
+                    "As in Robertson et al. (2023), all models control for a headline's word count,",
+                    "complexity and relative age.",
+                    "IV and covariates are z-standardized."),
+          notes.align = "l",
+          # type = "text",
+          df = FALSE,
+          header = FALSE)
+```
+
+
+```{r}
+# Extract the coefficients and confidence intervals for posemo variables
+models  <- list(rifs_1, rifs_2, rifs_3, rirs_1, rirs_2, rirs_3)
+
+estimates_moderation <- data.table(model = character(), 
+                                   term = character(), 
+                                   estimate = numeric(), 
+                                   conf.low = numeric(), 
+                                   conf.high = numeric())
+
+for (i in seq_along(models)) {
+  summary  <- broomExtra::tidy(models[[i]], conf.int = TRUE) %>% as.data.table()
+  confints <- confint(models[[i]], level = 0.99, method = "Wald")["likely_to_reject", ] %>% as.data.table()
+  result_moderation <- summary[term == "likely_to_reject", .(term, estimate)]
+  result_moderation[, conf.low  := confints[1]]
+  result_moderation[, conf.high := confints[2]]
+  result_moderation[, model := ifelse(test = (i > 3), 
+                                  yes  = "Random Intercepts Random Slopes",
+                                  no   = "Random Intercepts Fixed Slopes")]
+  estimates_moderation <- rbind(estimates_moderation, 
+                                result_moderation, fill = TRUE)
+}
+
+estimates_moderation[, source_model := paste0("Model ", as.factor(1:.N))]
+estimates_moderation[, label_model := rep(c("Basic", "Contr. Negativity", "Interaction"), times = 2)]
+```
+
+```{r forest_plot}
+#| label: fig-forest_plot
+#| fig-pos: H
+#| fig-cap: Forest plot of effect estimates with 99% confidence intervals.
+
+p1 <- ggplot(data = estimates_moderation, 
+             mapping = aes(x = estimate, 
+                           y = source_model, 
+                           xmin = conf.low, 
+                           xmax = conf.high,
+                           col = model)) +
+  geom_pointrange() +
+  geom_point(col = "#FFFFFF") +
+  geom_vline(xintercept = 0, col = "#FFFFFF") +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  labs(x = "",
+       y = "",
+       col = "") +
+  scale_x_continuous(limits = c(-0.01, 0.05)) +
+  # scale_y_discrete(labels = estimates_moderation[, label_model]) +
+  scale_color_custom_d() +
+  layout +
+  theme(axis.text.y = element_text(hjust=0)) +
+  theme(legend.position = "bottom")
+
+p1
+```
+
+
+Our analysis reveals substantial evidence that headlines with higher predicted likelihood of rejection by New York Times content moderators generate significantly greater user engagement. Across all six model specifications, rejection likelihood demonstrates a consistently positive and highly significant relationship with click-through rates (CTR). The coefficient values ranging from 0.019 to 0.028 (all p < 0.001) indicate that for each standard deviation increase in rejection likelihood, the odds of a user clicking on a headline increase by approximately 1.9% to 2.8% when controlling for other factors.
+
+While these effect sizes may appear modest in absolute terms, their practical significance within platform ecosystems is considerable. Click-through rate represents a particularly strong signal for recommendation algorithms, as it indicates a deliberate user choice to engage with content. Even small percentage increases in CTR can significantly influence content prioritization and distribution through algorithmic feedback loops. The persistence of this effect when controlling for negativity suggests that characteristics specifically triggering content moderation systems possess engagement properties beyond mere negative sentiment.
+
+The effect sizes for rejection likelihood, while smaller than those for general negativity (which range from 0.083 to 0.120), remain remarkably stable across different model specifications. This stability persists even when implementing random slopes, suggesting the robustness of the relationship across varied content. The consistency of these results across models with increasingly conservative controls strengthens confidence in the findings. Models 4-6, which include random slopes and demonstrate improved fit through lower Akaike Information Criterion values, continue to show significant positive effects of rejection likelihood on engagement.
+
+Importantly, when both rejection likelihood and negativity are included within the same models (2, 3, 5, 6), each maintains independent statistical significance with minimal change in coefficient magnitude. This pattern suggests these variables capture distinct aspects of content that independently drive user engagement. The absence of significant interaction effects in models 3 and 6 further indicates that these factors operate through separate mechanisms rather than having synergistic effects.
+
+These findings offer empirical evidence of a engagement-premium: content that approaches or crosses moderation thresholds attracts disproportionate attention from users, creating fundamental tensions between engagement metrics and content governance objectives. This tension becomes particularly relevant when considering that even modest engagement advantages can determine whether content receives widespread distribution through recommendation systems. The relationship between rejection likelihood and engagement may help explain why platforms struggle with content moderation despite stated commitments to addressing problematic content: the very content targeted for moderation may provide meaningful engagement advantages that directly influence platform economics.
+
+# Discussion
+
+Notably, we identified the engagement-premium in the data even though Upworthy branded itself as a "positive news outlet" [@MatiasEtAl_2021; @RobertsonEtAl_2023]. Hence, while Upworthy readers may have chosen this outlet for its positive spin on the news, content that is more likely to violate NYTs community standards is consumed more often. 
+
+Several methodological considerations should be noted when interpreting these results. First, our analysis measures rejection likelihood rather than toxicity specifically. While these concepts overlap, they are not identical—rejection by content moderators may occur for various reasons beyond toxicity, including misinformation, spam, or violations of specific platform policies. Our subsequent experimental work will focus explicitly on isolating toxic content characteristics and their impact on engagement.
+
+Second, we analyzed news headlines rather than social media posts. However, these Upworthy headlines were specifically designed as clickbait content for social media sharing, particularly on Facebook during the platform's engagement-optimization era. This context makes them a reasonable proxy for understanding engagement dynamics that might apply to social media posts, though direct generalization should be approached with caution.
+
+Third, we employed a classifier trained on New York Times comments to analyze headlines. This cross-contextual application may introduce measurement error, as the linguistic patterns that trigger moderation in NYT comment sections may differ from those in headlines or social media posts. However, the Perspectives API measures human perceptions of content characteristics rather than using simple lexical approaches, making it more transferable across contexts than keyword-based moderation systems.
+
+Fourth, the observed effects, while statistically significant, are modest in absolute terms (approximately 1.9% to 2.8% increase in odds of clicking per standard deviation increase in rejection likelihood). Yet within algorithmic systems that prioritize and amplify content based on engagement signals, even small advantages can lead to substantial differences in content distribution and visibility over time.
+
+Finally, the consistent positive relationship between rejection likelihood and engagement, independent of general negativity, suggests that characteristics specifically triggering content moderation systems possess engagement properties beyond mere negative sentiment. This finding aligns with our theoretical framework positing tension between engagement optimization and content governance within platform ecosystems.
+
+These results provide initial empirical support for the existence of an engagement-premium associated with potentially problematic content. Our subsequent experimental work will build on these findings to determine whether this premium can be specifically attributed to toxic content characteristics, examining both the user engagement side and advertiser responses to varying toxicity levels. This will allow us to investigate the hypothesized non-monotonic relationship between toxicity and engagement, as well as the economic trade-offs platforms face when moderating content.
+
+# References
+
+::: {#refs}
+:::
+
+\cleardoublepage
+
+# Session Info {.appendix}
+
+```{r}
+devtools::session_info()
+```
+
+
+# Legacy {.appendix}
+
+```{r}
+#| eval: false
+melt.data.table(processed,
+                id.vars = "unique_identifier",
+                measure.vars = patterns("toxicity|identity_attack|insult|threat|profanity|explicit|unsubstantial|inflammatory|likely"),
+                variable.name = "toxicity_measure") -> tmp
+
+ggplot(data = tmp,
+       mapping = aes(x = value)) +
+  theme_minimal() +
+  geom_hline(yintercept = 0) +
+  coord_cartesian(ylim = c(0, NA), expand = FALSE) +
+  geom_density(fill = "#af002a", alpha = 0.66) +
+  facet_wrap(facets = vars(toxicity_measure), ncol = 1)
+```
+
+```{r}
+#| eval: false
+    
+processed[, max(toxicity, na.rm = TRUE)]
+processed[, min(toxicity, na.rm = TRUE)]
+processed[, mean(toxicity, na.rm = TRUE)]
+processed[, sd(toxicity, na.rm = TRUE)]
+
+processed[insult > 0.75]
+names(processed)
+```

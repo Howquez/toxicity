@@ -1,0 +1,72 @@
+---
+title: "Out of Hand: An (Unobtrusive) Study of Online Behavior"
+author:
+- name: Hauke Roggenkamp [![](../misc/orcid.png){width=1.8%}](https://orcid.org/0009-0005-5176-4718)
+  email: Hauke.Roggenkamp@unisg.ch
+  orcid: 0009-0005-5176-4718
+  corresponding: true
+date: now
+date-format: long
+format: 
+  pdf:
+    classoption: twocolumn
+    include-in-header: 
+      text: |
+        \usepackage{titling}
+        \usepackage{sectsty}
+        \usepackage{lettrine}
+        \usepackage{amsmath}
+        \usepackage{flushend}
+        \renewcommand{\LettrineTextFont}{\normalfont}
+        \allsectionsfont{\rmfamily}
+        \renewcommand{\familydefault}{\rmdefault}
+        \pretitle{\begin{center}\LARGE\rmfamily}
+        \posttitle{\end{center}}
+        \predate{\begin{center}\rmfamily}
+        \postdate{\end{center}}
+        \setlength{\parindent}{0.25in}
+        \setlength{\parskip}{0pt}
+        \widowpenalty=10000
+        \clubpenalty=10000
+toc: false
+number-sections: false
+fig-cap-location: top
+execute:
+  echo: false
+  eval: false
+bibliography: ../literature/_references.bib
+---
+
+\lettrine[lines=3]{S}{ ocial} media platforms face a fundamental tension routed in their business model: toxic content may drive higher user engagement while simultaneously deterring advertisers. On the one hand, platforms seek to maximize user engagement as the core asset for their advertising-based revenue model. Hence, they bear implicit costs of content moderation as the moderated (i.e., toxic^[Defined as being rude, disrespectful, or unreasonable.]) content evokes engagement [@Beknazar-YuzbashevEtAl_2022]. On the other hand, these same platforms depend on advertisers who are reluctant to have their products appear alongside such content as it could harm their reputation through association [@AndresRossiTremblay_2023; @AhmadEtAl_2024]. This creates opposing incentives for platforms to moderate content. 
+
+This trade-off is not only topical [@CCDH2025] but also particularly consequential given the substantial negative externalities toxic content creates for society, including documented harms to mental health, increased polarization, and in extreme cases, offline violence [@AllcottEtAl_2020; @MuellerSchwarz_2020; @BraghieriEtAl_2022; @MuellerSchwarz_2023; @LewandowskiRobertsonDiResta_2024].
+
+Yet, this tension remains poorly understood as it is difficult to study these effects empirically. Traditional research paradigms struggle to balance experimental control with ecological validity: laboratory studies often lack realism, while field and observational studies on platforms are compromised by algorithmic interference and divergent content delivery that undermines causal inference [@BraunEtAl_2024; @BraunSchwartz_2024; @XuZhangZhou_2020].
+
+To establish that toxicity drives online engagement, I analyze a unique dataset [@MatiasEtAl_2021; @ReissRoggenkamp_2025] of 53,699 click-bait headline variations across 12,448 randomized controlled trials and a measure of the probability that content would be rejected by _New York Times_ moderators. Results suggest that headlines with higher rejection likelihood generate significantly greater engagement, with each standard deviation increase corresponding to 2.4% ($SE=0.004$) higher click-through rates. This "toxicity premium" remains robust across multiple natural language processing methods and model specifications, demonstrating a persistent effect that aligns well with theories grounded in psychology and economics [@OhmanMineka_2001; @RozinRoyzman_2001; @MadioQuinn_2024; @Beknazar-YuzbashevJiménez-DuránMateusz_2024].
+
+To shed light on the brands' incentives, I developed Digital In-Context Experiments [DICE, see @DICE_2024]: a new research tool that enables more realistic social media experiments with unobtrusive behavioral tracking and  control over entire feed compositions. The first feature allows me to approximate attention to both user-generated content (UCG) as well as branded content. The latter feature allows me to systematically vary the degree of toxicity in UCG between conditions to focus on its effect on brands and, ultimately, platform economics.
+
+I employed a Digital In-Context Experiment with 955 US-American participants ($M_{Age} = 39$ years; 56% female) recruited from Prolific and established that so-called _brand-unsafe_ (e.g., toxic) contexts have negative effects on recall ($\beta = −0.34$, $SE = 0.15$, $z = −2.31$, $p = 0.02$) and brand attitudes ($\beta = −0.51$, $SE = 0.08$, $t = −6.22$, $p = 0.002$, $d = 0.40$). I also find that these effects are moderated by dwell-time (i.e., how much time the user spent viewing an advertisement), such that the negative effect of an unsafe context on brand attitude was more pronounced when participants spent more time viewing the sponsored post ($\beta = −0.30$, $SE = 0.07$, $t = −4.46$, $p = 0.003$).
+
+Taken together^[I am currently conducting additional studies to better examine the psychological mechanisms underlying consumers' responses to toxicity.], this research contributes to efforts aimed at repairing social media. It provides a broad understanding of how engagement-optimizing recommender systems may systematically promote harmful content, which are commonly interpreted as negative externalities. However, my research also reveals a counterbalancing economic force: brand safety concerns. When toxic content damages brand perception, advertisers can internalize these negative externalities, creating market pressure that may naturally counteract platforms' promotion of harmful content. This alignment may offer a pathway for consumers and brands to co-creating healthier digital environments.
+
+<!-- # Legacy -->
+<!-- \lettrine[lines=3]{S}{ ocial} media platforms face a fundamental tension: toxic content may drive higher user engagement while simultaneously deterring advertisers concerned with brand safety. This tension emerges from competing incentives within platform business models. On one hand, platforms seek to maximize user engagement as the core asset for their advertising-based revenue model. Hence, they bear implicit costs of content moderation as toxic content (defined as being rude, disrespectful, or unreasonable messages) evokes strong emotional reactions and higher engagement [@Beknazar-YuzbashevEtAl_2022]. On the other hand, these same platforms depend on advertisers who prioritize brand safety. Major brands are reluctant to have their products appear alongside such content as it could harm their reputation through association. This creates opposing incentives for platforms to moderate content [@AndresRossiTremblay_2023; @AhmadEtAl_2024].  -->
+
+<!-- In the light of recent developments, this trade-off is not only topical [@CCDH2025] but also particularly consequential given the substantial negative externalities toxic content creates for society, including documented harms to mental health, increased polarization, and in extreme cases, offline violence [@AllcottEtAl_2020; @MuellerSchwarz_2020; @BraghieriEtAl_2022; @MuellerSchwarz_2023; @LewandowskiRobertsonDiResta_2024]. -->
+
+<!-- Yet, this tension remains poorly understood. Potentially due to methodological limitations in studying how users naturally engage with content in realistic social media environments. Traditional research paradigms struggle to balance experimental control with ecological validity: laboratory studies often lack realism, while field and observational studies on platforms are compromised by algorithmic interference and divergent content delivery that undermines causal inference [@BraunEtAl_2024; @BraunSchwartz_2024; @XuZhangZhou_2020]. -->
+
+<!-- Striving for ecological validity, my dissertation addresses this methodological gap by asking three interrelated questions: Does toxic content drive higher engagement on social media, through what psychological mechanisms, and how do brands alleviate this? To answer them, I employ empricial and experimental methods.  -->
+
+<!-- I analyze a unique dataset [@MatiasEtAl_2021; @ReissRoggenkamp_2025] of 53,699 headline variations across 12,448 randomized controlled trials using multilevel binomial regression models. I utilize the Perspectives API's rejection likelihood score (a measure of the probability that content would be rejected by moderators) while controlling for negativity. Results show headlines with higher rejection likelihood generate significantly greater engagement, with each standard deviation increase corresponding to 2.4% ($SE=0.004$) higher click-through rates. This toxicity premium remains robust across multiple natural languge processing methods and model specifications, demonstrating a persistent effect independent of general negative sentiment. -->
+
+<!-- To study both the brands' incentives as well as the consumers' psychological mechanisms I develop Digital In-Context Experiments [DICE, see @DICE_2024]: a research tool that enables more realistic social media experiments with (1) unobtrusive behavioral tracking and (2) control over entire feed compositions. The first feature allows me to approximate attention to both user generated content as well as branded content. The latter feature allows me to systematically vary the degree of toxicity in user generated content between conditions to focus on its effect on brands and, ultimately, platform economics. -->
+
+<!-- I employed a Digital In-Context Experiment with 955 US-American participants ($M_{Age} = 39$ years; 56% female) recruited from Prolific and established that so-called _brand-unsafe_ (e.g., toxic) contexts have negative effects on recall ($\beta = −0.34$, $SE = 0.15$, $z = −2.31$, $p = 0.02$) and brand attitudes ($\beta = −0.51$, $SE = 0.08$, $t = −6.22$, $p = 0.002$, $d = 0.40$). I also find that these effects are moderated by dwell-time (i.e., how much time the user spent viewing an advertisement), such that the negative effect of an unsafe context on brand attitude was more pronounced when participants spent more time viewing the sponsored post ($\beta = −0.30$, $SE = 0.07$, $t = −4.46$, $p = 0.003$). -->
+
+<!-- Taken together, these findings align with psychological research suggesting humans preferentially attend to potentially harmful stimuli as an evolved adaptation for threat detection [@OhmanMineka_2001; @RozinRoyzman_2001], creating fundamental tensions in online information ecosystems [@BradyEtAl_2017; @RobertsonEtAl_2023; @Beknazar-YuzbashevEtAl_2022]. They also illustrate how algorithmic content curation shapes user engagement and brand perception, reinforcing the psychological mechanisms that drive attention in digital environments. By studying the tension between engagement-maximizing incentives and brand safety, this research contributes to a better understanding of how digital platforms and recommender systems influence behavior and how brands can account for societal consequences omitted in platform optimization. -->
+
+
+# References

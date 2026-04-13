@@ -1,0 +1,161 @@
+---
+title: "The Toxicity Premium: Understanding the Economics of Content Moderation"
+author:
+- name: Hauke Roggenkamp [![](../misc/orcid.png){width=1.8%}](https://orcid.org/0009-0005-5176-4718)
+  email: Hauke.Roggenkamp@unisg.ch
+  orcid: 0009-0005-5176-4718
+  corresponding: true
+  affiliations:
+    - name: Institute of Behavioral Science and Technology, University of St. Gallen
+      address: Torstrasse 25
+      city: St. Gallen
+      country: Switzerland
+      postal-code: 9000
+- name: Jonas Görgen [![](../misc/orcid.png){width=1.8%}](https://orcid.org/0000-0002-6263-1532)
+  email: Jonas.Goergen@unisg.ch
+  orcid: 0000-0002-6263-1532
+  corresponding: true
+  affiliations:
+    - name: Institute of Behavioral Science and Technology, University of St. Gallen
+      address: Torstrasse 25
+      city: St. Gallen
+      country: Switzerland
+      postal-code: 9000
+date: now
+date-format: long
+format: 
+  pdf:
+    classoption: twocolumn
+    include-in-header: 
+      text: |
+        \usepackage{titling}
+        \usepackage{sectsty}
+        \usepackage{lettrine}
+        \usepackage{flushend}
+        \usepackage[all]{nowidow}
+        \usepackage{abstract}
+        \renewcommand{\abstractname}{}
+        \renewcommand{\absnamepos}{empty}
+        \renewcommand{\LettrineTextFont}{\normalfont}
+        \allsectionsfont{\rmfamily}
+        \renewcommand{\familydefault}{\rmdefault}
+        \pretitle{\begin{center}\LARGE\rmfamily}
+        \posttitle{\end{center}}
+        \predate{\begin{center}\rmfamily}
+        \postdate{\end{center}}
+        \setlength{\parindent}{0.25in}
+        \setlength{\parskip}{0pt}
+        \renewcommand{\thefootnote}{}
+        \pretitle{\begin{center}\LARGE\rmfamily \vspace{1em}}
+        \posttitle{\vspace{1em} \end{center}}
+        \predate{\begin{center}\rmfamily \vspace{1em}}
+        \postdate{\vspace{2em} \end{center}}
+    template-partials:
+      - ../misc/before-body.tex # abstract
+# format: 
+#   html:
+#     embed-resources: true
+#     theme: cosmo
+#     code-line-numbers: true
+toc: false
+number-sections: false
+fig-cap-location: top
+execute:
+  echo: false
+bibliography: ../literature/_references.bib
+nocite: |
+  @*
+---
+
+\footnotetext{Hauke Roggenkamp, PhD Candidate in Marketing at the University of St. Gallen, St. Gallen, Switzerland (email: \href{mailto:Hauke.Roggenkamp@unisg.ch}{Hauke.Roggenkamp@unisg.ch}). Jonas Goergen is a PhD Candidate in Marketing at the University of St. Gallen, St. Gallen, Switzerland.}
+
+
+
+
+\lettrine[lines=3]{S}{ ocial} media platforms thrive on user-generated content as their fundamental resource. When _Meta_'s users share a billion stories (disappearing posts) [every day](https://web.archive.org/web/20240531061745/https://www.facebook.com/business/news/stories-can-do-it), each post serves multiple strategic purposes: First, users themselves tend to stay engaged to monitor responses to their posts. Second, more content allows platforms to better match other users with relevant posts, leading to increased time spent on the platform [@AridorEtAl_2024]. Third, a rich content ecosystem attracts new users to the platform, as they are more likely to find communities and conversations that interest them. This growing user base and enhanced engagement makes the platform more valuable to advertisers who compete for user attention through paid placements, creating a self-reinforcing cycle where content generation drives both user growth and revenue.
+
+In addition to facilitating content production, the core of a platform's business is to effectively distribute content to maximize its consumption. Due to the unprecedented scale of content production, social media platforms cannot expose all users to all available content. Instead, they rely heavily on recommender systems to curate personalized feeds of content. These algorithms are crucial to the platform's business model: Unlike traditional media outlets where editors select content for a general audience, recommender systems analyze individual user behavior to identify and promote content most likely to drive engagement and ad revenue. The better these systems perform at matching users with relevant content, the more time users spend on the platform and the more valuable each advertising slot becomes.
+
+Despite selecting potentially relevant content per user, platforms also filter out content that should not be displayed to any user. This filtering has become increasingly crucial as online hate and harassment has emerged as a societal threat, affecting 48% of Internet users [@ThomasEtAl_2021]. As platforms cannot control content production directly, they typically set rules that define which type of content shall (not) be displayed and have developed automated tools to take action against toxic content such as hate speech, threats, and identity attacks. However, content moderation creates both direct and indirect costs for platforms. The direct costs stem from developing these detection algorithms and employing human moderators to evaluate flagged content. More significantly, field experimental evidence indicates substantial indirect costs: The removal of toxic content—including hate and misinformation that creates negative externalities for society [@Beknazar-YuzbashevEtAl_2022, p. 8]—leads to _reduced_ content consumption and thus lower advertising revenue. This economic impact is further illustrated by YouTube's _Adpocalypse_, where the platform's adoption of stricter content moderation led content creators to shift toward subscription-based models on alternative platforms like Patreon [@AndresRossiTremblay_2023]. Notably, this shift didn't eliminate toxic content but merely redistributed it, resulting in increased toxicity on Patreon [which would be a problem for us if Marketing would consider a general equilibrium as important.]
+
+The relationship between toxic content and platform revenue is further complicated by what triggered these moderation changes in the first place: advertiser preferences. The Adpocalypse began when major brands discovered their ads appearing alongside controversial content and departed from YouTube due to brand-safety concerns. This pattern has repeated across platforms: When Elon Musk announced plans to relax Twitter's content moderation policies in 2022, GroupM, the world's largest media buyer, classified Twitter as a "high-risk platform," leading many luxury brands like Balenciaga to pause or cease their advertising [@AndresRossiTremblay_2023, p. 1]. These reactions are economically rational: research shows that advertisers bid more when they know their ads will appear in brand-safe contexts [@AdaEtAl_2022], and premium brands particularly depend on high-quality content environments for successful campaigns [@ShehuEtAl_2021]. This suggests that platforms face not just a binary trade-off between societal welfare and engagement [@Beknazar-YuzbashevEtAl_2022, @Jimenez_2021], but must navigate a complex optimization problem: While toxic content may drive user engagement and time spent on the platform, it can simultaneously reduce advertising revenue if brands perceive the platform as unsafe for their ads.
+
+The present research investigates how content toxicity affects the dual-sided market dynamics of social media platforms. We theorize a non-monotonic relationship between toxicity and user engagement, where moderate levels of toxicity may increase engagement through heightened emotional arousal and controversy, while extreme toxicity likely decreases engagement by making the platform experience aversive. This builds on recent theoretical work showing how harmful content can simultaneously decrease user utility while increasing engagement through complementarity effects [@Beknazar-YuzbashevJiménez-DuránMateusz_2024]. Simultaneously, we expect advertiser willingness-to-pay to be a strictly decreasing function of content toxicity due to brand safety concerns. Through two linked experiments using simulated Twitter feeds, we aim to identify the qualitative properties of these relationships: (1) examining whether varying levels of feed toxicity reveal an inverse U-shaped pattern in user engagement, and (2) mapping the shape of advertisers' bidding response functions. While the specific intersections between these functions may not directly generalize to real-world platforms, understanding their qualitative properties (particularly the presence of non-monotonicity in user engagement and the shape of advertiser responses) provides valuable insights into the economic mechanisms underlying platform content moderation decisions. [Such as?]
+
+# Studying Toxicity
+
+In many applications, “toxicity” is defined as rude, disrespectful, or unreasonable messages that are likely to make someone leave a discussion. This definition follows from the one used by [Google’s Perspective](https://perspectiveapi.com/) algorithm, which is widely used in the industry and serves as a benchmark in academic studies [@AridorEtAl_2024].^[I haven't used it yet. For convenience, I used a python module called Detoxify.]
+
+Our focus on toxic content, rather than alternative forms of harmful content such as misinformation or spam, is motivated by societal, theoretical, and methodological considerations. From a societal perspective, toxic content poses an increasingly urgent challenge as social media becomes more central to public discourse and daily life. The prevalence of online toxicity has been linked to concerning phenomena such as declining mental health outcomes [@AllcottEtAl_2020; @BraghieriEtAl_2022] and in extreme cases, offline violence stemming from online hate speech [@MuellerSchwarz_2020; @MuellerSchwarz_2023; @LewandowskiRobertsonDiResta_2024]. These effects exemplify the negative externalities of toxic content: while individual users may derive benefits from posting inflammatory material, the costs are borne broadly across society, affecting both direct targets and third parties who weren't involved in the original interaction [@Beknazar-YuzbashevEtAl_2022]. The presence of these externalities, combined with platforms' complex incentives around content moderation, makes toxic content a particularly important focus for both researchers and policymakers.
+
+From a measurement perspective, toxicity presents a uniquely suitable construct for empirical investigation. Unlike misinformation, which requires extensive fact-checking and can be highly context-dependent, or spam, which typically manifests as a binary classification, toxicity can be reliably measured along a continuous scale using established tools such as the Perspective API, LLMs or alternative tools [see @AntypasEtAl_2024]. This continuous nature of toxicity allows for more nuanced manipulation and analysis of its effects. 
+
+Moreover, toxic content creates a particularly interesting tension within platform business models: while it may drive user engagement, it simultaneously risks deterring advertisers due to brand safety concerns. This dynamic is less pronounced with spam, which is universally unwanted by all stakeholders, or misinformation, where the platform incentives are more politically charged and complex. 
+
+Toxicity's effects can also be observed within a single browsing session, enabling controlled experimental studies without the need for longitudinal observation. Furthermore, studying toxic content allows for the creation of realistic experimental stimuli without raising ethical concerns about spreading actual misinformation. 
+
+<!--
+The research most closely related to our work is @Beknazar-YuzbashevEtAl_2022, who conducted a six-week field experiment examining how toxic content affects user engagement. Using a browser extension that automatically hid toxic content, they demonstrated that lowering exposure to toxicity reduced content consumption on Facebook by 23% and ad consumption on Twitter by 9.2%. Their field experimental approach offers high ecological validity by studying user behavior in natural social media environments.
+-->
+
+
+# Methods
+
+
+To examine the mechanisms underlying the effect of toxicity on engagement and advertiser preferences, we employ two complementary Digital In-Context Experiment [DICE; @DICE_2024]. These experiments expose study participants to simulated social media feeds that mirror the interface and functionality of actual platforms. DICE then captures engagement through multiple complementary measures: explicit engagement metrics such as likes and comments, implicit behavioral measures such as individual$\times$post level dwell time, and self-reported survey responses. This combination of measures is particularly valuable for our research context as it enables us to examine how (and why) toxic content affects both observable platform interactions and more subtle patterns of attention and engagement.
+
+## Pre-Testing
+
+Before conducting the main studies, we implement comprehensive pre-testing to validate our experimental manipulations and ensure the natural feel of the browsing experience. The pre-tests focus on verifying the effectiveness of our toxicity manipulations and the authenticity of the simulated platform experience. Additionally, we validate the clarity and effectiveness of the incentive-compatible bidding procedure for Study 2.
+
+
+## Stage 1: User Engagement 
+
+**Experimental Design and Stimuli Development:**
+The first experiment employs a between-subjects design manipulating feed toxicity levels. Each participant's feed contains 25 organic posts and one sponsored post positioned at the tenth position. The organic posts are sourced from existing data (such as the cyberbullying dataset), selected to represent varying levels of toxicity while maintaining authenticity and ecological validity.
+
+We measure toxicity through a dual approach. Following stimulus sampling principles [@SimonsohnMontealegreEvangelidis_2024], we first create a pool of 100 organic posts varying in toxicity levels. For each participant, we then randomly draw 25 posts from this pool to construct their individual feed. To ensure broad coverage of the toxicity spectrum while avoiding confounds, we implement a stratified randomization procedure that maintains a uniform distribution of toxic post counts across participants while preserving randomization of all other post characteristics. This approach means that while one participant might see a feed with 5 toxic posts randomly drawn from our high-toxicity pool combined with 20 non-toxic posts, another might see a different set of posts yielding the same count but drawn from different positions in our stimulus pool. The number of toxic posts in each feed ranges from 0 to 25, providing a discrete measure of toxicity exposure. We complement this with a continuous toxicity measure by calculating the average toxicity score of posts in each feed based on Perspective API ratings. This dual measurement strategy captures both the frequency and intensity of toxic content exposure while controlling for potential confounds through randomization.
+
+The sponsored post remains constant across conditions to isolate the effect of surrounding content toxicity on advertising effectiveness. We position this post consistently at the tenth position within each feed, balancing the need for sufficient pre-exposure context with adequate post-exposure browsing opportunity.
+
+**Experimental Procedure:**
+Participants engage in a natural browsing experience within our DICE environment. The interface replicates core X functionalities, including scrolling, liking, commenting, and sharing capabilities. We unobtrusively track both explicit and implicit engagement: first, we record explicit engagement metrics such as likes, comments, and shares. Second, we measure a more implicit measure, that is, dwell time at the participant$\times$post level, controlling for post length and size to ensure comparability. 
+
+Following the browsing task, participants complete a survey assessing brand attitudes and content recall for the sponsored post. In addition, we elicit perceived feed toxicity on a scale from 0 to 100, serving as a manipulation check.
+
+<!--
+**Design and Stimuli:**
+The first experiment employs a between-subjects design manipulating feed toxicity levels. We construct a pool of 100 tweets focused on [specific topic areas], from which we randomly sample 30 tweets for each participant's feed to implement stimulus sampling [@SimonsohnMontealegreEvangelidis_2024]. All tweets relate to a common set of contemporary discussion topics, mimicking natural social media discourse.
+
+Tweet toxicity is measured using the [Perspective API](https://www.perspectiveapi.com/), a free API that uses machine learning to identify "toxic" content^[Broadly defined as rude, disrespectful or unreasonable comment that is likely to make someone leave the discussion.]. The API is co-developed by Google and deployed by major platforms including Reddit and The New York Times. We stratify tweets based on their toxicity scores and implement a randomization procedure that ensures uniform distribution of toxicity levels across participant feeds while maintaining natural variation within feeds.
+
+In addition to the organic content, each feed contains one focal sponsored post positioned at a fixed position  within the feed. This sponsored post remains constant across all participants to isolate the effect of surrounding content toxicity on advertising effectiveness.
+
+**Measures:** 
+We collect both behavioral and self-reported measures of engagement. For behavioral measures, we unobtrusively track explicit engagement actions (e.g., likes, comments, and clicks), dwell time per post and also scroll behavior. Following the browsing task, participants complete a questionnaire capturing their responses to both organic content and the sponsored post (un-)cued recall, brand attitudes and some manipulation check.
+-->
+
+## Stage 2: Advertiser Preferences
+
+Study 2 examines how content toxicity influences advertising placement decisions through an incentive-compatible experimental design. A new set of participants assumes the role of advertising managers making strategic placement decisions for the sponsored post used in Study 1. This design allows us to observe how individual decision-makers adjust their strategies across different toxicity levels (while controlling for individual differences in risk preferences and decision-making styles.) Drawing on established principles of experimental economics, we create a simplified but theoretically grounded model of platform advertising markets, allowing us to examine how anticipation of user engagement affects advertiser behavior in response to content toxicity.
+
+**Experimental Design:**
+The experimental design achieves incentive compatibility through a carefully structured payment mechanism that aligns participant incentives with optimal decision-making. Each participant receives an initial endowment of experimental tokens. For each feed they evaluate, they must decide whether to place their advertisement in the tenth position, which costs a fixed amount of tokens. Their eventual earnings depend on two factors: the tokens they retain by not placing ads and the engagement their placed ads receive based on actual user behavior data from Study 1. Specifically, the lay brand managers earn Y tokens for every millisecond, the users in study 1 spent on their ad.
+
+This payment structure creates proper incentives in several ways. First, participants face a meaningful trade-off between keeping their tokens and spending them on ad placement, mirroring real-world budget allocation decisions. Second, their earnings from placed ads are tied to real engagement metrics from Study 1, creating a direct link between placement decisions and actual user behavior. Third, the within-subjects design allows us to observe how individual decision-makers adjust their strategies across different toxicity levels while controlling for individual differences in risk preferences and decision-making styles.
+
+**Procedure:**
+The experimental procedure consists of multiple rounds. In each round, participants review a feed's content and toxicity metrics, then decide whether to place their ad for the fixed token cost. To prevent learning effects that could bias subsequent decisions, participants make all their placement decisions before receiving any feedback. Only after completing all placement decisions do participants learn the dwell times their ads received in Study 1 and their corresponding token earnings. This sequential structure ensures that each placement decision is independent and based solely on the feed's characteristics rather than influenced by performance feedback from previous decisions.
+
+While this experimental model necessarily simplifies real-world advertising markets, it captures two essential aspects of the platform economy: user engagement with advertising content (Study 1) and advertiser responses to anticipated engagement (Study 2). The incentive-compatible payment structure, though stylized, allows us to observe how advertisers trade off placement costs against expected engagement benefits.
+<!--
+The second experiment examines how content toxicity affects advertisers' willingness to bid for ad placement. A new set of participants assumes the role of advertising managers making strategic placement decisions for the sponsored post used in Study 1.
+
+Participants (acting as lay brand managers) evaluate feeds generated from Study 1 and make incentive-compatible bidding decisions for ad placement. Each manager receives an initial endowment of experimental tokens and can bid to place their brand's sponsored post within the feed. Their eventual payment is determined by the actual engagement metrics collected in Study 1, creating a direct link between the two experiments.
+
+This experimental setup allows us to examine both sides of the platform economy: how toxic content affects user engagement (Study 1) and how anticipation of these effects influences advertiser behavior (Study 2). The connection between studies through performance-based payments in Study 2 creates a "realistic" simulation of the platform advertising marketplace.
+-->
+
+# References
+
+
