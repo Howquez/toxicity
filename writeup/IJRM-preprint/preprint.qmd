@@ -127,7 +127,7 @@ This definition also implies that toxicity is distinct from negativity as a theo
 | **Positive** | "Great game today, the team really pulled through in the second half." | "So proud of this squad. The fans rooting against us are pathetic and deserve to suffer." |
 | **Negative** | "Disappointing result today. The defense looked completely disorganized and the midfield offered nothing." | "You're a disgrace to this club. Hope you break your leg next match, you useless idiot." |
 
-: Examples of ..... {#tbl-toxic-examples}
+: The two-dimensional nature of toxic communication. Valence (positive/negative) and communicative style (civil/toxic) are orthogonal: toxic communication is defined by its harm-oriented function, not by its sentiment. {#tbl-toxic-examples}
 
 
 The same definition clarifies why toxicity differs from the content categories that govern programmatic brand safety practice and offers a complementary perspective for brand safety. Established industry standards or individual company solutions implement blocklists or exclusion checklists that classify content by topic: violence, adult material, hate speech, and similar categories (Amazon Ads, 2025; GARM, 2024^[While GARM was discontinued in 2024, its underlying content categorization remains broadly in use (Meier, 2025).]). Keyword blocklists implement these classifications by flagging topical terms regardless of communicative intent or intensity. These operationalizations are coarse and lead to type-1 and type-2 errors: On the one hand, keyword blocklists most likely fail to meet their goal whenever a discussion on a harmless topic turns toxic. A discussion on sports competitions, while generally considered a harmless topic, might turn toxic via its communicative style. On the other hand, these same blocklists might restrict advertising in harmless discussions for flagging keywords that are harmful only in specific contexts. These limitations are well documented. As an advertising executive noted: a “keyword blocklist approach frequently results in inventory that is contextually relevant, and safe, being blocked.” For example, during the Euro 2024 final, the flagging of keywords, such as “shoot” or “attack” led to nearly half of a UK publisher’s output being blocked from receiving advertising (The Media Leader 2024). In comparison, toxicity captures _how_ users communicate, which is orthogonal to what these users communicate about. Relying on toxicity for brand safety might thus flag unsafe contexts with higher specificity (reducing over-blocking of safe inventory tied to type-1 errors) and precision (improving detection of toxic discussions on nominally harmless topics that topic-based approaches miss). At the same time, the captured dimension of communication style is what regularly produces attentional, attitudinal, and arousal effects relevant to advertising outcomes (see “Motivating Evidence” section).
@@ -290,25 +290,37 @@ simulations[, log_time_on_feed := log1p(time_on_feed)]
 
 ### H1: Feed toxicity and ad engagement
 
-H1 predicts that feed-level toxicity and ad engagement follow an inverted-U relationship. We test this prediction for three outcomes: ad dwell time (log-transformed), time on feed (log-transformed), and lottery signup (binary). All three are theoretically driven by the same mechanism — arousal elevation at moderate toxicity and aversion-driven disengagement at high toxicity.
+H1 predicts that feed-level toxicity and ad engagement follow an inverted-U relationship. Outcomes are ordered by their theoretical proximity to the attention mechanism and their statistical sensitivity, establishing a pre-registered primary/secondary hierarchy to control the family-wise Type I error rate.
+
+**Ad dwell time** (log-transformed) is the primary outcome. It is the most direct unobtrusive measure of attention allocated to the sponsored post, recorded continuously by the viewport tracker without requiring any active response from participants. The sample size is powered for this outcome (see @sec-samplesize). H1 is confirmed or disconfirmed on the basis of this outcome alone.
+
+**Unaided ad recall** is the first secondary outcome. It captures the downstream consequence of sustained attention — whether exposure was sufficient to encode the brand into memory — and is stricter and less susceptible to guessing than aided recall.
+
+**Aided ad recall** is the second secondary outcome, reported as a robustness check when unaided recall is sparse.
+
+**Lottery signup** (binary) is the third secondary outcome. Although behavioral, it is influenced by factors beyond attention (e.g., individual propensity to enter lotteries) and is relatively sparse, limiting power. It is reported for completeness but not treated as confirmatory.
+
+**Time on feed** (log-transformed) is reported as a feed-level mechanism check rather than a test of H1. It addresses whether feed-level toxicity affects overall browsing duration — a precondition for the attention mechanism — but is not an ad effectiveness measure.
+
+All secondary outcomes are tested at $\alpha = .05$ using the same two-lines procedure as the primary outcome but are not the basis for confirming or rejecting H1.
 
 We follow the two-lines procedure proposed by @Simonsohn_2018. For each outcome, we
 1. fit a cubic spline to estimate the location of the peak, 
 2. apply the Robin Hood algorithm to determine the break point that maximizes power by allocating observations toward the weaker of the two slopes, and
 3. estimate an interrupted regression with one slope below and one slope above the break point. 
-H1 is supported if and only if both slopes (denoted as b1 and b2 in @tbl-decision-rules) are statistically significant ($\alpha = .05$) with opposite signs (i.e., a positive slope below the break point and a negative slope above it). A positive-then-flat pattern (significant first slope, non-significant second slope) is treated as inconclusive and does not support H1 [NOTE: this does not yet match @tbl-decision-rules, where we would reject H0 if the specification with the quadratic term indicates a positive main and negative quadratic effect to indicate a plateau. I know that we would want to observe an inverted U, which we would have to reject but I somehow want to also signal that we would be fine with a plateau.].
+H1 is fully supported if both slopes (denoted $b_1$ and $b_2$ in @tbl-decision-rules) pass one-sided tests ($\alpha = .05$) in the predicted directions: $b_1 > 0$ below the break point and $b_2 < 0$ above it. Because the two-lines test requires a true sign reversal, a positive-then-flat trajectory — in which engagement increases and then saturates without declining — would not satisfy the strict criterion but is still broadly consistent with the arousal mechanism and is treated as partial support.
 
-If the two-lines test does not support H1 — that is, if the second slope is non-significant or shares the sign of the first — we examine whether the data are consistent with a plateau pattern by testing the quadratic term in an OLS regression of the outcome on `feed_toxicity` and `feed_toxicity`$^2$. A significant positive linear term accompanied by a non-significant quadratic term is interpreted as evidence of monotonic increase; a significant negative quadratic term alongside a non-significant two-lines result is treated as inconclusive due to the known tendency of quadratic regression to produce false positives [@Simonsohn_2018]. The possible outcomes and their interpretations are summarized in @tbl-decision-rules.
+To capture this possibility, we additionally estimate a quadratic regression of the outcome on `feed_toxicity` and `feed_toxicity`$^2$. A significant negative quadratic coefficient alongside the plateau pattern in the two-lines test is interpreted as partial support for H1: the data show the predicted initial increase and a curvilinear compression, even if the second slope does not turn significantly negative. This secondary test is reported for completeness but, following @Simonsohn_2018, is not treated as primary evidence given the known tendency of quadratic regression to produce false positives. The full decision rules are in @tbl-decision-rules.
 
 | Two-lines result | Quadratic term | Interpretation |
 |---|---|---|
-| b1 > 0\*, b2 < 0\* | — | Inverted-U |
-| b1 > 0\*, b2 n.s. | < 0\* | Plateau: engagement saturates but does not invert |
-| b1 > 0\*, b2 n.s. | n.s. | Reject H1 |
-| b1 > 0\*, b2 > 0\* | — | Reject H1 |
-| b1 n.s. or b2 n.s. | — | Reject H1 |
+| $b_1 > 0^*$, $b_2 < 0^*$ | — | **Support H1** (inverted-U confirmed) |
+| $b_1 > 0^*$, $b_2$ n.s. | $< 0^*$ | **Partial support H1** (plateau: engagement increases and saturates but does not invert) |
+| $b_1 > 0^*$, $b_2$ n.s. | n.s. | Reject H1 (monotonic increase) |
+| $b_1 > 0^*$, $b_2 > 0^*$ | — | Reject H1 (monotonic increase) |
+| $b_1$ n.s. or $b_2$ n.s. | — | Reject H1 (no detectable relationship) |
 
-: Pre-registered decision rules for H1. {#tbl-decision-rules}
+: Pre-registered decision rules for H1. Quadratic term column is only evaluated when the two-lines test does not yield opposite significant slopes. {#tbl-decision-rules}
 
 ```{r twolines_helper}
 # Reusable function to build the two-panel two-lines figure.
@@ -319,10 +331,13 @@ twolines_plot <- function(outcome, xvar = "feed_toxicity", ylabel,
   f   <- as.formula(paste(outcome, "~", xvar))
   tl  <- twolines(f, data = as.data.frame(data), graph = 0)
   xc  <- tl$xc
+  # One-sided p-values: halve when slope is in the predicted direction
+  p1_one <- if (tl$b1 > 0) tl$p1 / 2 else 1
+  p2_one <- if (tl$b2 < 0) tl$p2 / 2 else 1
   cap <- paste0("b1 = ", apa(tl$b1, decimals = 3, leading = TRUE),
-                ", p = ",  apa(tl$p1, decimals = 3, leading = TRUE),
+                ", p = ",  apa(p1_one, decimals = 3, leading = TRUE),
                 "  |  b2 = ", apa(tl$b2, decimals = 3, leading = TRUE),
-                ", p = ",  apa(tl$p2, decimals = 3, leading = TRUE),
+                ", p = ",  apa(p2_one, decimals = 3, leading = TRUE),
                 "  |  xc = ", apa(xc,   decimals = 3, leading = TRUE))
 
   # Upper panel: raw data + LOESS smoother
@@ -397,11 +412,11 @@ twolines_plot("lottery_signup", ylabel = "Pr(Lottery Signup)", binary = TRUE)
 
 ::::
 
-### H2 Feed toxicity and brand attitude
+### H2: Feed toxicity and brand attitude
 
-RQ1 asks how feed-level toxicity affects brand attitude toward the advertised brand. Because the mechanisms that predict H1 make competing predictions for brand attitude — attentional gains increase ad processing but also deepen exposure to the aversive context — we treat this as a research question rather than a directional hypothesis.
+H2 predicts an inverted-U relationship between feed-level toxicity and brand attitude, with contamination strongest at moderate toxicity and attenuating at high toxicity. We apply the same two-lines procedure and quadratic fallback as for H1 (see @tbl-decision-rules). The primary test is whether both slopes are significant with opposite signs; partial support is declared if the first slope is positive and significant and the quadratic term is significantly negative.
 
-We compute a composite brand attitude score as the mean of the six focal brand items (`gfb_1` to `gfb_6`). We then estimate a linear regression of brand attitude on `feed_toxicity` and its square, and separately apply the two-lines procedure to test for a non-monotonic relationship. If neither the quadratic term nor either two-lines slope is significant, we conclude that feed-level toxicity does not affect brand attitude in a detectable way, consistent with the attenuation argument in the brand safety section above.
+We compute a composite brand attitude score as the mean of the six focal brand items (`gfb_1` to `gfb_6`). If neither the two-lines test nor the quadratic term is significant, we conclude that feed-level toxicity does not affect brand attitude in a detectable way, consistent with the attenuation argument in the brand safety section above.
 
 ```{r brand-attitude-composite}
 simulations[, brand_attitude := rowMeans(.SD, na.rm = TRUE), .SDcols = paste0("gfb_", 1:6)]
@@ -424,14 +439,16 @@ runs <- 1000
 ```
 
 
-The two-lines test has no closed-form power formula, so we estimate power by simulation following @Lakens_2022. For each various sample sizes $N$, we 
+The two-lines test has no closed-form power formula, so we estimate power by simulation following @Lakens_2022. For each candidate sample size $N$, we
 
 1. generate a dataset under one of two assumed inverted-U data-generating processes,
 2. apply the two-lines test,
-3. flag a success when both slopes are significant ($\alpha = .05$) with opposite signs, and
-4. repeat the procedure `r format(big.mark = ",", runs)` times. 
+3. flag a success when both slopes pass a one-sided test ($\alpha = .05$; $b_1 > 0$ and $b_2 < 0$), and
+4. repeat the procedure `r format(big.mark = ",", runs)` times.
 
-Power is the proportion of successful replications. We report power separately for two outcomes — ad dwell time and brand attitude — using a common Cohen's d scale to make the scenarios comparable across outcomes. We target 80% power for a medium effect ($d = 0.5$) and report the resulting $N$ as our recruitment goal.
+Power is the proportion of successful replications. A key concept throughout is the **inverted-U peak**: under the assumed model $\mathbb{E}[Y \mid x] = \beta_0 + \beta_1 \cdot x(1-x)$, the function $x(1-x)$ reaches its maximum of $0.25$ at $x = 0.5$ (a feed that is exactly half toxic). The peak outcome is therefore $\beta_0 + 0.25\,\beta_1$, and $0.25\,\beta_1$ is the peak uplift — how much higher the expected outcome is at 50% toxicity compared to a fully clean or fully toxic feed. Effect sizes are expressed as Cohen's $d$ at this peak: $d = 0.25\,\beta_1 / \sigma$, or equivalently $\beta_1 = 4\,d\,\sigma$.
+
+We report power separately for two outcomes — ad dwell time and brand attitude — using this common $d$ scale. The power curves (@fig-power) indicate that detecting a small effect ($d = 0.2$) with 80% power requiresapproximately $N = 4{,}000$ participants; we adopt this as our recruitment target. The two-lines test is more conservative than a simple quadratic regression, so this sample size provides at minimum adequate power for the pre-registered primary test.
 
 ```{r power-helper}
 power_twolines <- function(N, b0, b1, sd, n_sim = runs) {
@@ -440,7 +457,10 @@ power_twolines <- function(N, b0, b1, sd, n_sim = runs) {
     x  <- sample(seq(0, 1, length.out = N))
     y  <- rnorm(N, mean = b0 + b1 * x * (1 - x), sd = sd)
     tl <- twolines(y ~ x, data = data.frame(x = x, y = y), graph = 0)
-    success[i] <- tl$p1 < .05 & tl$p2 < .05 & sign(tl$b1) != sign(tl$b2)
+    # One-sided p-values: directional predictions are b1 > 0 and b2 < 0
+    p1 <- if (tl$b1 > 0) tl$p1 / 2 else 1
+    p2 <- if (tl$b2 < 0) tl$p2 / 2 else 1
+    success[i] <- p1 < .05 & p2 < .05
   }
   mean(success)
 }
@@ -461,7 +481,7 @@ b1_brand_m <- 4 * 0.5 * sigma_brand
 b1_brand_s <- 4 * 0.2 * sigma_brand
 ```
 
-**Ad dwell time.** Because ad dwell time is heavily right-skewed, we analyze it on the $\log(1+\text{seconds})$ scale. All effect sizes are expressed as Cohen's d at the peak of the inverted U: d = (peak mean − tail mean) / SD, which translates to $\beta_1 = 4 \cdot d \cdot \sigma$ in the model $\mathbb{E}[y \mid x] = \beta_0 + \beta_1 x(1-x)$. The pilot baseline is `r round(expm1(b0_dwell), 1)` s (median dwell time in the tail conditions). A medium effect ($d = 0.5$) raises the peak-condition median to `r round(expm1(b0_dwell + 0.25 * b1_dwell_m), 1)` s — `r round(expm1(b0_dwell + 0.25 * b1_dwell_m) - expm1(b0_dwell), 1)` s above the tail. A small effect ($d = 0.2$) raises it to `r round(expm1(b0_dwell + 0.25 * b1_dwell_s), 1)` s.
+**Ad dwell time.** Because ad dwell time is heavily right-skewed, we analyze it on the $\log(1+\text{seconds})$ scale, with $\sigma$ estimated from the pilot. The pilot baseline is `r round(expm1(b0_dwell), 1)` s (median dwell time at the tails, i.e., in a fully clean or fully toxic feed). The peak — a 50% toxic feed — raises median dwell time to `r round(expm1(b0_dwell + 0.25 * b1_dwell_m), 1)` s under a medium effect ($d = 0.5$), an absolute increase of `r round(expm1(b0_dwell + 0.25 * b1_dwell_m) - expm1(b0_dwell), 1)` s. Under a small effect ($d = 0.2$), the peak median is `r round(expm1(b0_dwell + 0.25 * b1_dwell_s), 1)` s.
 
 ```{r simulations_exist}
 power_sim_dwell_exists <- file.exists("../../data/simulations/power_sim_dwell_time.csv")
@@ -516,6 +536,14 @@ power_brand <- rbindlist(list(
 fwrite(x = power_brand, file = "../../data/simulations/power_sim_brand_attitudes.csv")
 ```
 
+```{r sample_sizes}
+sample_size_dwell <- power_dwell[power > 0.8][str_detect(string = effect, pattern = "Small"), min(N)]
+
+sample_size_brand <- power_brand[power > 0.8][str_detect(string = effect, pattern = "Small"), min(N)]
+
+sample_size <- max(c(sample_size_brand, sample_size_dwell))
+
+```
 
 :::: {.place arguments='top, scope: "parent", float: true'}
 
@@ -529,6 +557,7 @@ power_plot <- function(dt, title) {
     geom_hline(yintercept = 0.80, linetype = "dashed", colour = "grey50") +
     geom_line() + # geom_point() +
     scale_y_continuous(labels = scales::percent_format(accuracy = 1),
+                       breaks = seq(from = 0, to = 1, by = 0.2),
                        limits = c(0, 1)) +
     scale_colour_manual(values = c("#252147", "#C64156")) +
     labs(x = "N", y = "Power", colour = NULL, title = title) +
