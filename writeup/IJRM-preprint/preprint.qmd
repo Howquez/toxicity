@@ -82,7 +82,8 @@ sim[engagement < 0, engagement := 0]
 ```{r read_data}
 upworthy <- fread(file = "../../study-1-upworthy/data/processed/headlines_with_txicity_scores.csv")
 simulations <- fread(file = "../../data/simulations/simulations.csv")
-pilot <- fread(file = "../../pilot-dice/data/processed/pilot_participant_level_data.csv")
+pilot <- fread(file = "../../pilot-dice/data/processed/pilot_participant_level_data.csv")[participant_code != "fdzno443" & session_code == "c1mufosc"]
+corpus <- fread(file = "../../software/DICE/static/data/toxic_movie_reactions.csv")
 ```
 
 ```{r helpers}
@@ -140,13 +141,13 @@ We examine two brand outcomes under feed-level toxicity. First, we evaluate ad e
 
 Toxicity drives both  attention and engagement. Negatively-valenced content in general captures disproportionate attention (Pratto and John 1991; Rozin and Royzman 2001). It receives higher engagement rates, greater sharing, and stronger recall than neutral and positive content (for an overview, see Robertson et al. 2023). Further, threat-relevant stimuli, such as toxic communication (e.g., personal insult), activate automatic detection processes that elevate attention (Öhman and Mineka 2001). Users who face the ad may process it shallowly or deeply depending on their arousal state at the moment of encounter. Excitation transfer theory holds that residual arousal from a preceding stimulus intensifies affective and cognitive responses to subsequent stimuli (Zillmann 1971). In a social media feed, toxic posts preceding the ad elevate the user's arousal through their provocative and targeted content. This residual arousal transfers to the ad. With toxicity, elevated arousal deepens processing of the ad. 
 
-Toxic content, specifically, has been demonstrated to generate larger, wider, and deeper reply threads than civil counterparts on Twitter (Saveski et al. 2021) and across other platforms (Avalle et al. 2024). The other way around, reducing toxicity on a platform via a browser extension showed a decrease in user attention and engagement across time spent, impressions, and clicks (Beknazar-Yuzbashev et al. 2025) in line with this reasoning. The provocative and targeted nature of toxic communication pulls in users who engage by replying, retaliating, defending, or spectating. Overall, toxicity likely increases overall attentional on feed elements, including the ad.
+Toxic content, specifically, has been demonstrated to generate larger, wider, and deeper reply threads than civil counterparts on Twitter (Saveski et al. 2021) and across other platforms (Avalle et al. 2024). The other way around, reducing toxicity on a platform via a browser extension showed a decrease in user attention and engagement across time spent, impressions, and clicks (Beknazar-Yuzbashev et al. 2025) in line with this reasoning. The provocative and targeted nature of toxic communication pulls in users who engage by replying, retaliating, defending, or spectating. Overall, toxicity likely increases overall attention on feed elements, including the ad.
 
 These benefits of toxicity likely come to a halt at high toxicity. Sustained exposure to severely toxic content like hate speech, harassment, dehumanizing language, produces aversion, lowered engagement, and withdrawal. Users report that they avoid participation for fear of harassment or shut down their accounts entirely; self-censorship and silencing are among the observed reactions (Lenhart et al. 2016). For instance, misogynistic hate speech reduces women’s participation in political discourse (Carlson 2018). In gaming, toxicity decreases player engagement (Liu et al. 2025). Put differently, studies on content moderation find that reducing toxicity can increase participation (Matias 2019; Wise et al. 2006). Furthermore, the operationalization of toxicity that became the industry standard (Aridor et al. 2024) directly includes a heightened propensity to leave a discussion as a signal for its presence (Lees et al. 2022). 
 
-The traditional cue-utilization hypothesis is informative as well as it predicts a reversal in processing depth at high levels of arousal. Elevated arousal from negative affect narrows the range of environmental cues that receive processing resources (Easterbrook 1959). Under moderate toxicity, the attentional window still encompasses both toxic content and adjacent stimuli. Under high toxicity and thus arousal, attention concentrates on threat-relevant cues at the expense of peripheral stimuli (Martha and Sutherland, 2014; van Steenbergen et al. 2011). Users in a state of heightened threat vigilance prioritize monitoring toxic content and disengage from elements perceived as irrelevant to the arousal source. The ad — a commercially oriented, non-threatening element — thus loses attentional resources. 
+The traditional cue-utilization hypothesis is informative as well as it predicts a reversal in processing depth at high levels of arousal. Elevated arousal from negative affect narrows the range of environmental cues that receive processing resources (Easterbrook 1959). Under moderate toxicity, the attentional window still encompasses both toxic content and adjacent stimuli. Under high toxicity and thus arousal, attention concentrates on threat-relevant cues at the expense of peripheral stimuli (Martha and Sutherland, 2014; van Steenbergen et al. 2011). Users in a state of heightened threat vigilance prioritize monitoring toxic content and disengage from elements perceived as irrelevant to the arousal source. The ad, a commercially oriented, non-threatening element, thus loses attentional resources. 
 
-Ad effectiveness therefore depends on the overall levels of toxicity in the feed. At low-to-moderate doses, attentional toxicty likely exceeds aversion. At high doses, the relationship reverses. We therefore expect an inverted U: engagement increases with toxicity dose up to a threshold and declines beyond it.
+Ad effectiveness therefore depends on the overall levels of toxicity in the feed. At low-to-moderate doses, arousal likely exceeds aversion. At high doses, the relationship reverses. We therefore expect an inverted U: engagement increases with toxicity dose up to a threshold and declines beyond it.
 
 > **H1:** Feed-level toxicity and ad engagement (ad dwell time, ad clickthrough rate, ad recall) follow an inverted-U relationship: ad engagement increases with the proportion of toxic content up to a moderate threshold and decreases at higher proportions.
 
@@ -249,37 +250,80 @@ Addressing these limitations with additional field data that is typically availa
 
 To address the three limitations of the news headline study, we designed a Digital In-Context Experiment to embed a sponsored post within a feed whose toxicity dose is experimentally varied. This enables a clean operationalization as well as more ecologically valid stimuli and measures compared to typical vignette experiments [@DICE_2025].
 
-<!-- ## Experimental Design -->
+[Give a brief overview here]
 
-<!-- Toxicity rarely exists in isolation from other message characteristics such as valence or profanity. Manipulating toxicity in an experimental therefore creates a methodological challenge as one might risk to not only manipulate the construct of interest (toxicity) but also latent variables. In creating a civil alternative to a toxic social media post by removing toxic elements may also change other dimensions such as emotional intensity, controversy, argument quality, target specificity, or certainty. For instance, transforming _"these idiots pushing vaccine mandates are destroying our freedom"_ into a civil version requires decisions about whether to preserve the accusatory framing, the emotional intensity, or the absolutist claim. Any such transformation risks conflating toxicity with these other message dimensions, of which some are latent and unknown to the researcher.  -->
+## Scenario (WIP, Claude's Version)
 
-<!-- A matched-pairs approach thus creates an internal validity problem because we cannot confidently attribute observed effects to toxicity rather than to the features that necessarily changed alongside it. Stimulus sampling [@SimonsohnMontealegreEvangelidis_2025] offers an alternative: instead of trying to control for all potential confounds through careful matching, we treat stimuli as a random factor and sample broadly enough that idiosyncratic features vary independently of the toxicity manipulation. -->
+Participants are exposed to a scenario around the movie *Avatar: Fire and Ash* (2025). Topic selection for a feed toxicity study requires a balance between ecological validity and experimental control. The topic must generate genuine toxic discourse in sufficient volume to construct a large stimulus corpus, engage participants authentically, and avoid partisan or identity-based reactions strong enough to saturate outcome measures independently of the toxicity manipulation. Entertainment content about a major release satisfies these criteria. Film discourse is emotionally engaging — participants form genuine opinions and reactions — yet is not structured by political or identity cleavages that would produce floor or ceiling effects on engagement or attitudinal outcomes. The topic also constitutes a realistic context for consumer advertising, which supports the ecological validity of the brand safety design.
 
-<!-- We implement stimulus sampling through a dose-response design where participants view feeds composed of multiple tweets randomly drawn from larger pools. Specifically, we create two large pools of tweets addressing the same topic: one pool contains toxic tweets, the other contains non-toxic tweets in the domain of [x]{style="background-color:yellow"}. Participants are assigned to conditions that vary in the proportion of toxic content (ranging from 0 to 100%), and each participant's feed is populated by randomly sampling the specified number of tweets from each pool. For example, a participant with a 50% toxicity dose views 10 randomly selected tweets from the toxic pool and 10 randomly selected tweets from the non-toxic pool. Critically, different participants in the same dose condition see different specific tweets. This design ensures that potential confounds such as controversy or emotional intensity vary within both pools and are distributed across participants through random sampling. If we observe a dose-response relationship where engagement responds to the toxicity doses, this effect cannot be attributed to any single confounding feature of particular tweets because different participants encountered different combinations of such features. The systematic difference across doses is the proportion of toxic content, not any specific content characteristic. -->
+## Design
 
-<!-- While stimulus sampling effectively handles confounds between toxicity and other message features, it does not solve problems arising from strong partisan or identity-based reactions to the topic itself. If participants hold extreme positions on a topic, their engagement responses might already reach maximum or minimum values based on their agreement or disagreement with the stance expressed, independent of how that stance is communicated. For example, participants who strongly oppose a policy might refuse to engage with any content supporting it regardless of whether that content is expressed toxically or civilly, producing a floor effect. Conversely, participants might eagerly engage with any content attacking their outgroup whether that attack is toxic or civil, producing a ceiling effect. In either case, the toxicity manipulation has insufficient room to produce detectable effects because identity-based reactions to the topic dominate the response.  -->
-<!-- [Even if we successfully isolate toxicity from stance through stimulus sampling, we won't detect its effect if stance reactions are so strong that they saturate the response scale.]{style="background-color:yellow"} -->
+The study employs a dose-response design, implemented using the Digital In-Context Experiment (DICE) paradigm [@DICE_2025; @oTree]. We expose participants to a social media feed in which we manipulate the proportion of toxic content exogenously and continuously between participants. DICE renders the feed in a responsive browser interface that replicates the visual structure of a microblogging platform and records granular behavioral data unobtrusively and without requiring any explicit response from participants. Each participant views a single feed consisting of 25 organic posts and one sponsored post. The toxicity dose $d$, defined as the proportion of toxic organic posts, ranges from 0 (a fully civil feed) to 1 (a fully toxic feed) in increments of $\frac{1}{25}$. This continuous manipulation allows estimation of the full dose-response function, which is a prerequisite for testing the inverted-U predictions in H1 and H2.
 
-<!-- The ideal topic allows for genuine disagreement and emotional investment but avoids extreme tribal activation. Participants should care enough to have preferences but not so intensely that their reactions saturate the response scale. Additionally, the topic must generate sufficient naturally occurring discourse to populate both toxic and civil stimulus pools, must be relevant to brand safety concerns, and must be sufficiently familiar to participants that they can form informed judgments about both content and brand adjacency. -->
+Constructing valid stimuli for a toxicity manipulation (e.g., via web scraping) is complicated by the fact that toxicity often correlates with several other content attributes. Toxic posts tend to be more profane, more negatively valenced, more emotionally intense, and more controversial than civil posts. Manually retrieving and constructing matched pairs that differ only in toxicity is therefore difficult (if not infeasible), because any revision that removes toxic elements changes these correlated dimensions as well. We address this issue by combining two methodological approaches: stimulus sampling [@SimonsohnMontealegreEvangelidis_2025] and scope testing with AI-generated stimuli [@TomainoEtAl_2025].
+Accordingly, we treat individual posts as a random factor and draw each participant's feed independently from a large, pre-constructed stimulus corpus. Because idiosyncratic features of specific posts vary randomly across participants assigned the same dose, potential confounds are uncorrelated with the dose manipulation in expectation. In addition, we use generative AI to construct the corpus itself. This makes it tractable to generate posts across the full toxicity range while systematically varying orthogonal dimensions such as length, sentiment polarity, writing style, and thematic focus.
+
+The stimulus corpus was constructed in three stages. In the first stage, we prompted the Grok-3 API (xAI) to generate posts across four broad toxicity levels (i.e., civil, mildly toxic, toxic, and highly toxic) while independently varying length, writing style, sentiment, and thematic focus. Each post was scored using the Google Perspective API, which provides a continuous toxicity score on the $[0, 1]$ scale and constitutes the industry standard for computational toxicity detection in research and practice [@AridorEtAl_2024]. The initial stimuli generation produced adequate coverage at the extremes of the distribution but left a gap in the moderate range (scores between approximately 0.15 and 0.65). A second stage targeted this gap. Specifically, we applied a generate-and-filter procedure: posts were generated to three intermediate toxicity targets and accepted only if their toxicity score (predicted with the Perspective API) fell within the target band, otherwise generation was repeated. In a third stage, sampled posts were rephrased using another Grok-3 API call to eliminate repetitive phrasing patterns. The resulting corpus (consisting of `r corpus[sponsored == 0, .N]` organic posts) almost spans the full toxicity range [`r apa(corpus[sponsored == 0, min(toxicity)], decimals = 3, leading = TRUE)`, `r apa(corpus[sponsored == 0, max(toxicity)], decimals = 3, leading = TRUE)`] with near-uniform coverage.
+
+Posts in the corpus are classified as toxic (Perspective score $\geq 0.6$) or non-toxic (i.e., civil; score $< 0.6$), which yields two sampling pools. For a participant assigned dose $d$, the feed is assembled by sampling $d \times 25$ posts without replacement from the toxic pool and $(1 - d) \times 25$ posts from the civil pool, then randomly shuffling the resulting 25 organic posts. Each participant draws an independent sample, so participants assigned the same dose see different posts in a different order. 
+
+The sponsored post advertises M&M's and invites participants to enter a prize lottery by clicking on the post. Participants who click are entered into a real lottery. The brand and product category were chosen to match the scenario framing: a snack brand is a contextually plausible advertiser in a feed about a movie. The sponsored post is inserted at a fixed position (14th scroll position) and is identical across all participants and dose conditions.
 
 
 ## Procedure
 
-Participants were recruited via Prolific and directed to an oTree-based web application. After providing informed consent, participants read a brief scenario framing the task: they had recently come across the latest *Avatar: Fire and Ash* film and were opening a microblogging feed to see what others were saying about it. They were instructed to browse at whatever pace and depth felt natural and to click a "Done browsing" button when they felt they had seen enough.
+After providing informed consent, participants read a brief scenario framing the task: they had recently come across *Avatar: Fire and Ash* and were opening a microblogging feed to see what others were saying about the film. They are instructed to browse at whatever pace and depth feels natural and to click "Done browsing" when they feel they have seen enough. DICE records behavioral data unobtrusively throughout: the viewport tracker logs dwell time continuously for each post as it enters and exits the visible area, and participants may like posts or compose reply text within the feed.
 
-Participants then viewed a simulated microblogging feed consisting of one sponsored and 25 organic posts. Each feed was composed by first classifying all posts in the stimulus corpus as toxic (Perspective API score $\geq$ 0.6) or non-toxic (score $<$ 0.6), yielding two sampling pools. Each participant was assigned a toxicity dose $d \in [0, 1]$, representing the target proportion of toxic organic posts in their feed. For a participant assigned dose $d=\frac{3}{25}$, for instance, the feed was constructed by sampling three organic posts without replacement from the toxic pool and the 22 organic remaining posts from the non-toxic pool, then randomly shuffling the resulting sequence. Because each participant draws a fresh independent sample, participants assigned the same dose see different posts and sequences to ensure that idiosyncratic post-level features are uncorrelated with the dose across participants.
+After clicking "Done browsing," participants are redirected automatically to a Qualtrics survey. To preserve the integrity of the unaided recall measure, the survey opens with the recall questions before participants are asked about the brand directly. Unaided recall is elicited first, followed by aided recall, and the brand attitude battery closes the survey along with a prior brand knowledge item.
 
-One post in each feed was a sponsored post (the focal advertisement) which was placed at a fixed (i.e., the 14th) scroll position. The sponsored post was identical across all participants and all dose conditions. Because post order within the feed was randomized, the posts appearing immediately above and below the sponsored post varied randomly across participants. The local toxicity of the ad's immediate context therefore co-varies with the feed-level dose in expectation but is not deterministically controlled, [which we address in the analysis by including the toxicity of adjacent posts as a covariate..?]{style="background-color:yellow"}
+## Outcomes
 
-Participant behavior during feed exposure was recorded unobtrusively. A viewport tracker logged the duration each post was visible in the browser window (dwell time) to provide a proxy for in(attention). Participants could also like posts and compose reply text, which were recorded as indicators of active engagement. Total time from loading the feed in the browser to proceeding to the next page was recorded as overall time on feed. We also recorded paradata, such as the device type and screen resolution to allow for covariate adjustment for differences in feed rendering across devices. After browsing, participants were automatically redirected to a Qualtrics survey to elicit ad recall and brand attitudes.
+Participant behavior during feed exposure is recorded unobtrusively. A viewport tracker logs the duration each post is visible in the browser window (dwell time) to provide a proxy for in(attention). Participants could also click on the ad (to sign up for an incentive compatible lottery), like posts and compose reply text, which is recorded as indicators of active engagement. Total time from loading the feed in the browser to proceeding to the next page was recorded as overall time on feed. We also record paradata, such as the device type and screen resolution to allow for covariate adjustment for differences in feed rendering across devices. 
+
+Outcomes are ordered by their theoretical proximity to the attention mechanism and their statistical sensitivity, establishing a pre-registered primary/secondary hierarchy to control the family-wise Type I error rate.
+
+### Ad dwell time
+This (log-transformed) variable is the primary outcome. It is the most direct unobtrusive measure of attention allocated to the sponsored post, recorded continuously by the viewport tracker without requiring any active response from participants. Viewport dwell time shows high concurrent validity with mobile eye-tracking measures ($r = .89$ with gaze duration) and accounts for 76% of the variance in brand recall in validation data [@BrunsEtAl_2025]. The sample size is powered for this outcome. H1 is supported or rejected on the basis of this outcome alone. [Something we should check in our pilot data, too.]{style="background-color:yellow"}
+
+### Recall
+Unaided recall is a secondary outcome. Participants are asked to list any brands from which they recall having seen an ad in the feed. This captures whether exposure was sufficient to encode the brand into memory without a cue, and is stricter and less susceptible to guessing than aided recall. Aided recall, in which participants select from a list of eight brands the one they recall seeing a sponsored post for, is reported as a robustness check when unaided recall is sparse.
+
+### Lottery signup
+This is binary variable. which we also consider as is a secondary outcome. Although behavioral and also a good approximation of financial brand safety [@BernritterEtAl_2025], it is relatively sparse, which limits power. It is therefore reported for completeness but not treated as confirmatory.
+
+### Time on feed
+Similar to the dwell time measure, this log-transformed outcome is reported as a feed-level variable. It addresses whether feed-level toxicity affects overall browsing duration. As such, the variable may predict (in)attention, but is not an ad effectiveness measure.
+
+
+### Brand attitude
+
+is the primary outcome for H2. Participants rate agreement with six statements about M&M's on a 7-point scale (1 = *strongly disagree*, 7 = *strongly agree*); items are drawn from @GrewalEtAl_2025 and cover purchase consideration, quality perception, recommendation likelihood, social identification, general liking, and trustworthiness. The composite score is the mean across all six items. We apply the same two-lines procedure and decision rules as for H1 (see @tbl-decision-rules). If neither the two-lines test nor the quadratic term is significant, we conclude that feed-level toxicity does not affect brand attitude detectably.
+
 
 ## Pilot Data
 
-Lorem ipsum
+```{r some_summaries}
+# Pilot noise estimates
+b0_dwell    <- pilot[, mean(log1p(ad_dwell_time), na.rm = TRUE)]
+sigma_dwell <- pilot[, sd(log1p(ad_dwell_time), na.rm = TRUE)]
+b0_brand    <- pilot[, mean(brand_attitude, na.rm = TRUE)]
+sigma_brand <- pilot[, sd(brand_attitude, na.rm = TRUE)]
 
-## Sampling Plan
+# Effect sizes in Cohen's d units (d = peak uplift / SD = 0.25 * b1 / sigma)
+# b1 = 4 * d * sigma; medium d = 0.5, small d = 0.2
+b1_dwell_m <- 4 * 0.5 * sigma_dwell
+b1_dwell_s <- 4 * 0.2 * sigma_dwell
+b1_brand_m <- 4 * 0.5 * sigma_brand
+b1_brand_s <- 4 * 0.2 * sigma_brand
+```
 
-Lorem ipsum
+
+We recruited `r pilot[, .N]` participants for a pilot study. We operationalized feed toxicity differently for the pilot, compared to how we will operationalize it in the future. Specifically, we used a Gaussian kernel centered on target mean scores drawn from a uniform grid. Realized feed toxicity ranged from `r apa(pilot[, min(feed_toxicity)], decimals = 3, leading = TRUE)` to `r apa(pilot[, max(feed_toxicity)], decimals = 3, leading = TRUE)`. The main study replaces this operationalization with the binary proportion method described in the Design section, which assigns toxicity dose as a fixed proportion of toxic posts and ensures uniform coverage across the full range.
+
+The sponsored post entered the viewport of `r pilot[!is.na(ad_dwell_time), .N]` participants (about two thirds of all participants). The remaining `r pilot[is.na(ad_dwell_time), .N]` did not scroll far enough for the ad to become visible. Among the 136 exposed participants, median ad dwell time was `r apa(pilot[!is.na(ad_dwell_time), median(ad_dwell_time)], decimals = 3, leading = TRUE)` seconds (mean `r apa(pilot[!is.na(ad_dwell_time), mean(ad_dwell_time)], decimals = 3, leading = TRUE)`s, SD `r apa(pilot[!is.na(ad_dwell_time), sd(ad_dwell_time)], decimals = 3, leading = TRUE)`s). On the log(1+s) scale used in the primary analysis, the pilot mean is `r apa(b0_dwell, decimals = 3, leading = TRUE)` and SD is `r apa(sigma_dwell, decimals = 3, leading = TRUE)`. These estimates ground the power analysis. Four participants spent fewer than 20 seconds browsing the feed. 
+
+Recall rates indicate adequate detection sensitivity. Seventy-two of 201 participants (35.8%) recalled M&M's on the unaided measure; 94 (46.8%) identified it on the aided measure. The gap between unaided and aided recall supports that both measures are informative and justifies treating aided recall as a robustness check. Lottery signup was sparse (`r pilot[, sum(lottery_signup, na.rm=TRUE)]`/201, `r apa(100 * pilot[, mean(lottery_signup, na.rm=TRUE)], decimals = 3, leading = TRUE)`%), consistent with the expectation in the Outcomes section. Brand attitude showed a pilot mean of `r apa(b0_brand, decimals = 3, leading = TRUE)` (SD `r apa(sigma_brand, decimals = 3, leading = TRUE)`) on the 1-7 scale, with no evidence of a ceiling effect.
+
 
 ## Analysis Plan
 
@@ -290,19 +334,9 @@ simulations[, log_time_on_feed := log1p(time_on_feed)]
 
 ### H1: Feed toxicity and ad engagement
 
-H1 predicts that feed-level toxicity and ad engagement follow an inverted-U relationship. Outcomes are ordered by their theoretical proximity to the attention mechanism and their statistical sensitivity, establishing a pre-registered primary/secondary hierarchy to control the family-wise Type I error rate.
+H1 predicts that feed-level toxicity and ad engagement follow an inverted-U relationship.
 
-**Ad dwell time** (log-transformed) is the primary outcome. It is the most direct unobtrusive measure of attention allocated to the sponsored post, recorded continuously by the viewport tracker without requiring any active response from participants. The sample size is powered for this outcome (see @sec-samplesize). H1 is confirmed or disconfirmed on the basis of this outcome alone.
-
-**Unaided ad recall** is the first secondary outcome. It captures the downstream consequence of sustained attention — whether exposure was sufficient to encode the brand into memory — and is stricter and less susceptible to guessing than aided recall.
-
-**Aided ad recall** is the second secondary outcome, reported as a robustness check when unaided recall is sparse.
-
-**Lottery signup** (binary) is the third secondary outcome. Although behavioral, it is influenced by factors beyond attention (e.g., individual propensity to enter lotteries) and is relatively sparse, limiting power. It is reported for completeness but not treated as confirmatory.
-
-**Time on feed** (log-transformed) is reported as a feed-level mechanism check rather than a test of H1. It addresses whether feed-level toxicity affects overall browsing duration — a precondition for the attention mechanism — but is not an ad effectiveness measure.
-
-All secondary outcomes are tested at $\alpha = .05$ using the same two-lines procedure as the primary outcome but are not the basis for confirming or rejecting H1.
+All secondary outcomes are tested at $\alpha = .05$ using the same two-lines procedure as the primary outcome but are not the basis for supporting or rejecting H1. [We should rewrite this. This is intended to be a disclaimer that we will not correct for multiple hypothesis testing because the outcomes are secondary and because we only have on primary outcome per hypothesis (which are more or less unrelated).]
 
 We follow the two-lines procedure proposed by @Simonsohn_2018. For each outcome, we
 1. fit a cubic spline to estimate the location of the peak, 
@@ -314,7 +348,7 @@ To capture this possibility, we additionally estimate a quadratic regression of 
 
 | Two-lines result | Quadratic term | Interpretation |
 |---|---|---|
-| $b_1 > 0^*$, $b_2 < 0^*$ | — | **Support H1** (inverted-U confirmed) |
+| $b_1 > 0^*$, $b_2 < 0^*$ | — | **Support H1** (inverted-U supported) |
 | $b_1 > 0^*$, $b_2$ n.s. | $< 0^*$ | **Partial support H1** (plateau: engagement increases and saturates but does not invert) |
 | $b_1 > 0^*$, $b_2$ n.s. | n.s. | Reject H1 (monotonic increase) |
 | $b_1 > 0^*$, $b_2 > 0^*$ | — | Reject H1 (monotonic increase) |
@@ -348,9 +382,9 @@ twolines_plot <- function(outcome, xvar = "feed_toxicity", ylabel,
     coord_cartesian(xlim = c(0, 1)) +
     geom_vline(xintercept = xc, linetype = "dashed", colour = "grey60") +
     geom_jitter(data = data[get(xvar) <= xc], colour = "#252147", alpha = 0.05,
-                width = if (binary) 0.02 else 0.1, height = if (binary) 0.02 else 0.1) +
+                width = 0.01, height = if (binary) 0.02 else 0.1) +
     geom_jitter(data = data[get(xvar) >  xc], colour = "#C64156", alpha = 0.05,
-                width = if (binary) 0.02 else 0.1, height = if (binary) 0.02 else 0.1) +
+                width = 0.01, height = if (binary) 0.02 else 0.1) +
     geom_smooth(formula = "y ~ x", method = smooth_method,
                 method.args = smooth_args,
                 col = "#000000", fill = "#000000", lty = 2) +
@@ -432,23 +466,29 @@ twolines_plot("brand_attitude", ylabel = "Brand Attitude (1–7)")
 
 ::::
 
-## Sample Size Justification
+## Robustness and Potential Concerns
+
+Because organic post order is randomized within each feed, the posts appearing immediately above and below the sponsored post vary across participants. The local toxicity of the ad's immediate context therefore co-varies with the feed-level dose in expectation but is not independently manipulated. To assess whether the estimated dose-response relationship is driven by local adjacency rather than overall feed composition, we re-estimate the primary analysis controlling for the mean Perspective API score of the two organic posts adjacent to the sponsored post (one above, one below). If the dose effect is attenuated once local adjacency is held constant, this would suggest that proximity to toxic content — rather than ambient feed-level toxicity — is the operative mechanism. Stability of the estimate would support the feed-level interpretation.
+
+## Sample Size Justification {#sec-samplesize}
 
 ```{r}
 runs <- 1000
 ```
 
 
-The two-lines test has no closed-form power formula, so we estimate power by simulation following @Lakens_2022. For each candidate sample size $N$, we
+The two-lines test has no closed-form power formula, so we estimate power by simulation following @Lakens_2022. For each sample size $N \in [200, 400, ..., 4800, 5000]$, we
 
-1. generate a dataset under one of two assumed inverted-U data-generating processes,
+1. generate a dataset with two assumed inverted-U data-generating processes representing for small and medium effect sizes,
 2. apply the two-lines test,
 3. flag a success when both slopes pass a one-sided test ($\alpha = .05$; $b_1 > 0$ and $b_2 < 0$), and
 4. repeat the procedure `r format(big.mark = ",", runs)` times.
 
-Power is the proportion of successful replications. A key concept throughout is the **inverted-U peak**: under the assumed model $\mathbb{E}[Y \mid x] = \beta_0 + \beta_1 \cdot x(1-x)$, the function $x(1-x)$ reaches its maximum of $0.25$ at $x = 0.5$ (a feed that is exactly half toxic). The peak outcome is therefore $\beta_0 + 0.25\,\beta_1$, and $0.25\,\beta_1$ is the peak uplift — how much higher the expected outcome is at 50% toxicity compared to a fully clean or fully toxic feed. Effect sizes are expressed as Cohen's $d$ at this peak: $d = 0.25\,\beta_1 / \sigma$, or equivalently $\beta_1 = 4\,d\,\sigma$.
+Power is defined as the probability that the test correctly rejects the null hypothesis when there actually is a genuine effect. In our simulation, power is therefore represented as the proportion of successful runs. 
 
-We report power separately for two outcomes — ad dwell time and brand attitude — using this common $d$ scale. The power curves (@fig-power) indicate that detecting a small effect ($d = 0.2$) with 80% power requiresapproximately $N = 4{,}000$ participants; we adopt this as our recruitment target. The two-lines test is more conservative than a simple quadratic regression, so this sample size provides at minimum adequate power for the pre-registered primary test.
+A key concept throughout is the inverted-U peak: under the assumed model $\mathbb{E}[Y \mid x] = \beta_0 + \beta_1 \cdot x(1-x)$, the function $x(1-x)$ reaches its maximum of $0.25$ at $x = 0.5$ (a feed that is exactly half toxic). The peak outcome is therefore $\beta_0 + 0.25\,\beta_1$, and $0.25\,\beta_1$ is the peak uplift — how much higher the expected outcome is at 50% toxicity compared to a fully clean or fully toxic feed. Effect sizes are expressed as Cohen's $d$ at this peak: $d = 0.25\,\beta_1 / \sigma$, or equivalently $\beta_1 = 4\,d\,\sigma$.
+
+We report power separately for two outcomes (ad dwell time and brand attitude) using this common $d$ scale. The power curves (@fig-power) indicate that detecting a small effect ($d = 0.2$) with 80% power requiresapproximately $N = 4{,}000$ participants; we adopt this as our recruitment target. The two-lines test is more conservative than a simple quadratic regression, so this sample size provides at minimum adequate power for the pre-registered primary test.
 
 ```{r power-helper}
 power_twolines <- function(N, b0, b1, sd, n_sim = runs) {
@@ -466,19 +506,6 @@ power_twolines <- function(N, b0, b1, sd, n_sim = runs) {
 }
 
 ns <- seq(200, 5000, by = 200)
-
-# Pilot noise estimates
-b0_dwell    <- pilot[, mean(log1p(ad_dwell_time), na.rm = TRUE)]
-sigma_dwell <- pilot[, sd(log1p(ad_dwell_time), na.rm = TRUE)]
-b0_brand    <- pilot[, mean(brand_attitude, na.rm = TRUE)]
-sigma_brand <- pilot[, sd(brand_attitude, na.rm = TRUE)]
-
-# Effect sizes in Cohen's d units (d = peak uplift / SD = 0.25 * b1 / sigma)
-# b1 = 4 * d * sigma; medium d = 0.5, small d = 0.2
-b1_dwell_m <- 4 * 0.5 * sigma_dwell
-b1_dwell_s <- 4 * 0.2 * sigma_dwell
-b1_brand_m <- 4 * 0.5 * sigma_brand
-b1_brand_s <- 4 * 0.2 * sigma_brand
 ```
 
 **Ad dwell time.** Because ad dwell time is heavily right-skewed, we analyze it on the $\log(1+\text{seconds})$ scale, with $\sigma$ estimated from the pilot. The pilot baseline is `r round(expm1(b0_dwell), 1)` s (median dwell time at the tails, i.e., in a fully clean or fully toxic feed). The peak — a 50% toxic feed — raises median dwell time to `r round(expm1(b0_dwell + 0.25 * b1_dwell_m), 1)` s under a medium effect ($d = 0.5$), an absolute increase of `r round(expm1(b0_dwell + 0.25 * b1_dwell_m) - expm1(b0_dwell), 1)` s. Under a small effect ($d = 0.2$), the peak median is `r round(expm1(b0_dwell + 0.25 * b1_dwell_s), 1)` s.
@@ -570,274 +597,260 @@ power_plot(power_dwell, "Ad dwell time") +
 power_plot(power_brand, "Brand attitude")
 ```
 
+
+## Recruitment
+
+
+## Exclusion Criteria
+
 ::::
 
-<!-- # Legacy -->
-
-<!-- ```{r time_spent} -->
-<!-- #| eval: false -->
-<!-- #| layout-ncol: 2 -->
-<!-- #| fig-cap:  -->
-<!-- #|   - "Two Line Plot Uri" -->
-<!-- #|   - "Two Line Plot ggplot" -->
-
-<!-- tl_tof <- twolines(time_on_feed ~ feed_toxicity, data = as.data.frame(simulations), graph = 1) -->
-
-<!-- ggplot(data = simulations,  -->
-<!--        mapping = aes(x = feed_toxicity, y = time_on_feed)) + -->
-<!--   # geom_jitter(alpha = 0.05) + -->
-<!--   geom_vline(xintercept = tl_tof$xc, linetype = "dashed", colour = "grey60") + -->
-<!--   geom_smooth(data = simulations[feed_toxicity <= tl_tof$xc], -->
-<!--               formula = "y ~ x", method = "lm", se = TRUE, colour = "#1b7837") + -->
-<!--   geom_smooth(data = simulations[feed_toxicity >  tl_tof$xc], -->
-<!--               formula = "y ~ x", method = "lm", se = TRUE, colour = "#762a83") + -->
-<!--   geom_smooth(formula = "y ~ x", method = "loess") + -->
-<!--   labs(x = "Experienced Toxicity", y = "Time on Feed", -->
-<!--        caption = paste0("b1=", apa(tl_tof$b1, decimals = 3, leading = TRUE),  -->
-<!--                         " p=", apa(tl_tof$p1, decimals = 3, leading = TRUE), -->
-<!--                         "  |  b2=", apa(tl_tof$b2, decimals = 3, leading = TRUE),  -->
-<!--                         " p=", apa(tl_tof$p2, decimals = 3, leading = TRUE), -->
-<!--                         "  |  xc=", apa(tl_tof$xc, decimals = 3, leading = TRUE))) + -->
-<!--   theme_minimal() -->
-<!-- ``` -->
-
-<!-- ```{r} -->
-<!-- #| label: fig-sim-inverted-u -->
-<!-- #| fig-cap: "Engagement with sponsored content exhibits an inverted-U relationship with feed toxicity. Points represent individual observations; line shows local polynomial smoothing." -->
-<!-- ggplot(data = sim, -->
-<!--        mapping = aes(x = n_toxic, y = engagement)) + -->
-<!--   geom_point(alpha = 0.33) + -->
-<!--   geom_smooth(method = "loess", formula = "y ~ x", col = "#000000", fill = "#000000") + -->
-<!--   coord_cartesian(ylim = c(0, NA), -->
-<!--                   xlim = c(0, 31), -->
-<!--                   expand = FALSE) + -->
-<!--   geom_hline(yintercept = 0) + -->
-<!--   labs(x = "Number of Toxic Posts in Feed", -->
-<!--        y = "Some Engagement Metric of Sponsored Post") + -->
-<!--   theme_minimal() -->
-<!-- ``` -->
-
-<!-- The three perspectives yield different preferences for toxicity levels. The platform's engagement-maximizing preference (ignoring brand safety) favors higher toxicity levels where user time spent remains elevated. Advertisers prefer lower toxicity levels that protect brand reputation while maintaining reasonable engagement with sponsored content. However, advertisers have a tolerance threshold beyond which they withdraw advertising spend. The platform's revenue-maximizing strategy must therefore balance engagement gains against advertiser flight risk. While our experimental setting may not perfectly replicate real-world platform dynamics, it allows us to demonstrate that these perspectives systematically diverge and to identify the general pattern of how toxicity affects each stakeholder differently [see @Beknazar-YuzbashevJiménez-DuránMateusz_2024 for a theoretical account].  -->
-
-<!-- This aligns with anecdotal evidence of advertiser responses: when Elon Musk announced plans to relax Twitter's content moderation policies in 2022, GroupM, the world's largest media buyer, classified Twitter as a "high-risk platform," leading many luxury brands like Balenciaga to pause or cease their advertising [@AndresRossiTremblay_2023]. More generally, research shows that advertisers bid more when they know their ads will appear in "brand-safe" contexts [@AdaEtAl_2022]. -->
-
-<!-- Our research contributes to understanding the strategic interplay between platforms, advertisers, and users in digital environments where engagement-maximizing algorithms may promote toxic content. ... -->
-
-<!-- The remainder of this article proceeds as follows. We begin by reviewing the theoretical foundations of toxicity in digital environments, examining how platform business models create incentives that may diverge from advertiser interests and surveying prior research on toxic content and user engagement. We then present X empirical studies. Study 1 analyzes field data from 12,473 A/B tests of news headlines to establish that toxic content systematically captures more attention than civil alternatives, even when advertising identical articles. Studies 2-X employ controlled experiments with simulated social media feeds to test whether the relationship between toxicity and engagement follows an inverted-U pattern and to measure effects on brand outcomes including recall, attitude, and click-through rates. We conclude with a discussion of practical implications for platforms, advertisers, and policymakers as well as limitations and future research. -->
-
-
-
-<!-- ## Not so New Anymore -->
-
-<!-- Aridor et al. model the platform's problem as choosing personalized content for each user: -->
-
-<!-- $$\max_{\{x_i\}_i \subseteq \cup_j x^p_j} \sum_{i} \omega(x_i) \times t_i(x_i)$$ -->
-
-<!-- where the platform selects for each user $i$ a subset $x_i$ from all produced posts to maximize revenue. Here, $x_i \in \mathbb{R}^K$ is a vector of post characteristics (sentiment, topic, format, etc.), $t_i(x_i)$ represents time spent, and $\omega(x_i)$ represents monetary gains per unit time. -->
-
-<!-- **Incorporating toxicity:** Toxicity is one characteristic of content. Let $\tau_i = \tau(x_i)$ denote the toxicity level in user $i$'s feed. The platform's revenue is: -->
-
-<!-- $$\text{Revenue} = \sum_{i} \omega(x_i) \times t_i(x_i)$$ -->
-
-<!-- To isolate the effect of toxicity, we examine how revenue changes when toxicity varies while holding other content characteristics constant. Applying the chain rule: -->
-
-<!-- $$\frac{\partial \text{Revenue}_i}{\partial \tau_i} = \omega(x_i) \times \frac{\partial t_i}{\partial x_i} \cdot \frac{\partial x_i}{\partial \tau_i} + t_i(x_i) \times \frac{\partial \omega}{\partial x_i} \cdot \frac{\partial x_i}{\partial \tau_i}$$ -->
-
-<!-- For notational simplicity, we write $\frac{\partial t_i}{\partial \tau_i}$ to denote $\frac{\partial t_i}{\partial x_i} \cdot \frac{\partial x_i}{\partial \tau_i}$, the total effect of toxicity on engagement through content changes: -->
-
-<!-- $$\frac{\partial \text{Revenue}_i}{\partial \tau_i} = \omega(x_i) \times \frac{\partial t_i}{\partial \tau_i} + t_i(x_i) \times \frac{\partial \omega}{\partial \tau_i}$$ -->
-
-<!-- Two competing forces emerge: -->
-
-<!-- 1. Engagement effect: $\frac{\partial t_i}{\partial \tau_i}$ captures how time spent responds to changes in feed toxicity—we expect an inverted U-shape. -->
-<!-- 2. Brand safety effect: $\frac{\partial \omega}{\partial \tau_i}$ captures how advertiser willingness to pay responds to feed toxicity. If real, $\frac{\partial \omega}{\partial \tau_i} < 0$. If an artifact, $\frac{\partial \omega}{\partial \tau_i} \approx 0$. -->
-
-<!-- Our hypothesis: The second term equals zero because brand attitudes remain unchanged, allowing platforms to optimize engagement alone without concern for advertiser flight. -->
-
-<!-- ## Upworthy -->
-
-<!-- <!-- DETAILED VERSION BELOW --> -->
-
-<!-- We begin with a pilot study that provides field evidence for the central and counter-intuitive premise motivating this project, that is, that toxicity affects attention. -->
-
-<!-- ### Data -->
-
-<!-- :::: {.place arguments='top, scope: "parent", float: true'} -->
-
-<!-- ::: {#tbl-wide"} -->
-<!-- ```{r} -->
-<!-- #| label: tbl-examplary-headlines -->
-<!-- #| tbl-cap: "Headlines from an examplary A/B-test describing the same article" -->
-
-<!-- upworthy[clickability_test_id == "540701dab38b99745b000070",  -->
-<!--           .(Headline = headline,  -->
-<!--             Toxicity = apa(TOXICITY, decimals = 3, leading = TRUE), -->
-<!--             `CTR (%)` = apa(ctr*100, decimals = 3, leading = TRUE))] |> -->
-<!--   unique(by = "Headline") %>% -->
-<!--   .[order(Toxicity, decreasing = TRUE)] %>% -->
-<!--   flextable() %>% -->
-<!--   fontsize(size = 9, part = "all") %>% -->
-<!--   align(align = "left", j = 1) %>% -->
-<!--   align(align = "left", j = 2:3) %>% -->
-<!--   width(j = 1, width = 4.5) %>% -->
-<!--   width(j = 2:3, width = 0.7) %>% -->
-<!--   paginate(init = FALSE, hdr_ftr = FALSE) -->
-<!-- ``` -->
-<!-- ::: -->
-
-<!-- :::: -->
-
-<!-- This paper analyzes variations of news headlines written by writers and editors of Upworthy.com, a U.S. media publisher that was recognized as the fastest-growing media company in the world in 2013. Upworthy pioneered the systematic use of randomized A/B-tests [@MatiasEtAl_2021], hereafter referred to as _"experiments"._ For each article, Upworthy tested different variations of headlines to advertise the respective article on its home feed. The corresponding experimental process was straightforward: editors or writers created several alternative headlines per news article, website visitors were randomly assigned to one version upon visiting Upworthy.com, and the platform recorded whether the visitor clicked, producing a binary outcome for each headline. The headline with the most clicks per impression (referred to as click-through rate, CTR) was then selected to advertise the article permanently and for all users. -->
-<!-- Because these experiments were not only conducted systematically, but also deployed at scale (i.e., at a time when Upworthy’s content was shared more frequently on Facebook than that of all major U.S. outlets combined) this case is well-suited to study attention allocation and data-driven content optimization. -->
-
-<!-- The _Upworthy Research Archive_ [@MatiasEtAl_2021] retrieved the corresponding data and contains all experiments conducted between January 24, 2013, and April 30, 2015. For this study, I use the cleaned version of the dataset provided by @ReissRoggenkamp_2025, who removed duplicate headlines and added additional attributes (e.g., semantic negativity scores predicted by gpt-4o-mini). The resulting subset includes `r n_experiments` experiments with `r n_headlines` unique headline variations, that generated approximately `r n_impressions` impressions and `r n_clicks` clicks.  -->
-
-<!-- The dataset has a two-level structure: the article level corresponds to an experiment (A/B-test), and the headline level, where multiple alternatives advertise the same article. -->
-<!-- @tbl-examplary-headlines displays six alternative headlines that advertised the same underlying article to illustrate an experiment's nested data structure. The headlines exhibit substantial variation in both toxicity scores (ranging from  -->
-<!-- `r apa(upworthy[clickability_test_id == "540701dab38b99745b000070", min(TOXICITY)], decimals = 3, leading = FALSE)` to  -->
-<!-- `r apa(upworthy[clickability_test_id == "540701dab38b99745b000070", max(TOXICITY)], decimals = 3, leading = FALSE)`) and click-through rates (ranging from  -->
-<!-- `r apa(100 * upworthy[clickability_test_id == "540701dab38b99745b000070", min(ctr)], decimals = 3, leading = FALSE)`% to  -->
-<!-- `r apa(100 * upworthy[clickability_test_id == "540701dab38b99745b000070", max(ctr)], decimals = 3, leading = FALSE)`%). -->
-
-<!-- In contrast to online platform and observational studies [see @DICE_2025], the data were not affected by algorithmic interference issues [see, e.g., @XuZhangZhou_2020; @Johnson_2023; @BraunSchwartz_2025]. In addition, Upworthy conducted only one experiment at a time across their entire website to ensure that the tests were independent. -->
-
-<!-- @MatiasEtAl_2021 collaborated and interviewed with former engineers, editors, and data scientists employed at Upworthy to document and validate the dataset structure. All seven interviewees confirmed details about the experimental process and data collection procedures. An additional quantitative validation checked balance across experimental arms and confirmed that clicks were always lower than or equal to participant counts.^[The validation process identified treatment imbalance issues for tests conducted between June 25, 2013, and January 10, 2014, leading to the exclusion or special treatment of experiments from this period in subsequent analyses.] -->
-
-<!-- Analyzing 53,755 headline variations from 12,473 A/B tests, we find initial, model-free evidence of a relationship between toxicity and engagement. The empirical cumulative distribution functions depicted in @fig-ECDF illustrate that headlines flagged as toxic consistently achieve higher click-through rates than civil alternatives, with the toxic distribution shifted to the right. This raw pattern suggests that toxic content captures more attention across the entire distribution of the CTR.  -->
-
-<!-- ```{r} -->
-<!-- #| label: fig-ECDF-old -->
-<!-- #| eval: false -->
-
-<!-- ggplot(data = upworthy, -->
-<!--        mapping = aes(x = ctr, col = TOXICITY_dummy)) + -->
-<!--   theme_minimal() + -->
-<!--   geom_hline(yintercept = 0) + -->
-<!--   coord_cartesian(ylim = c(0, 1.1), -->
-<!--                   xlim = c(0, 0.105), -->
-<!--                   expand = FALSE) + -->
-<!--   stat_ecdf(geom = "point", alpha = 0.25, size = 0.5) + -->
-<!--   scale_x_continuous(labels = scales::percent_format(accuracy = 1)) + -->
-<!--   scale_colour_manual(values = c("#28a745", "#af002a"), -->
-<!--                       labels = c("Non-Toxic", "Toxic")) + -->
-<!--   guides(colour = guide_legend(position = "inside", ncol = 1, -->
-<!--                                override.aes = list(linetype = 1, size = 2, alpha = 1))) + -->
-<!--   labs(x = "Click-Through Rate (CTR)", -->
-<!--        y = "ECDF (%)", -->
-<!--        col = "") + -->
-<!--   theme(legend.margin = margin(0, 0, 0, 0), -->
-<!--         legend.justification.inside = c(0.9, 0.3), -->
-<!--         legend.location = "plot", -->
-<!--         plot.title.position = "plot") -->
-<!-- ``` -->
-
-<!-- ### Empirical Strategy -->
-
-<!-- The model-free comparison may be misleading if toxic headlines systematically advertise different types of articles than non-toxic headlines. Articles that naturally attract toxic language (such as controversial political topics) might also inherently generate higher CTRs regardless of headline phrasing. To better capture the effect of toxic language from these article-level characteristics, we exploit the variation in headline toxicity within experiments to estimate whether CTR in- or decreases in toxicity when comparing headlines that advertise identical content. -->
-
-<!-- To this end, we employed a fixed effects specification that controls for all article-level characteristics: -->
-
-<!-- $$ -->
-<!-- \text{CTR}_{ij} = \alpha_i + \beta \cdot \text{Toxicity}_{ij} + \boldsymbol{\gamma}' \mathbf{X}_{ij} + \varepsilon_{ij} -->
-<!-- $$ -->
-
-<!-- where $\text{CTR}_{ij}$ is the click-through rate for headline $j$ in experiment $i$, $\text{Toxicity}_{ij}$ is the Perspective API's toxicity score (0-1), and $\alpha_i$ are experiment fixed effects. The vector $\mathbf{X}_{ij}$ includes headline-level controls: all models include headline length (word count) and text complexity (Gunning Fog Index) as covariates since @RobertsonEtAl_2023 found these to predict CTR.^[Platform age, another covariate they controled for in their mixed effect models, varies only between experiments, so article fixed effects absorb this variation.] -->
-
-<!-- The coefficient of interest, $\beta$ captures the association between toxicity and CTR using only variation across headlines for the same article. For example, this approach compares the following two headlines advertising the same article reported in @tbl-examplary-headlines: _"An Incredibly Important Piece Of Information Came Right To Their Front Door"_ with _"Here’s How You End Up In Prison If You’re British And Also A Complete Idiot"_ (toxicity scores:  -->
-<!-- `r apa(upworthy[unique_identifier == "95286", TOXICITY], decimals = 3, leading = FALSE)` vs.  -->
-<!-- `r apa(upworthy[unique_identifier == "95285", TOXICITY], decimals = 3, leading = FALSE)`) while holding constant the underlying article content and all article-invariant factors. -->
-
-<!-- ### Results -->
-
-<!-- ```{r} -->
-<!-- #| output: asis -->
-<!-- #| label: tbl-fixed-effects -->
-<!-- #| tbl-cap: Associations of Content Characteristics and Click-Through Rate -->
-
-<!-- upworthy[, ctr_100 := 100 * ctr] -->
-
-<!-- `Model 1` <- fixest::feglm(fml = ctr_100 ~ TOXICITY_dummy + length + complexity -->
-<!--                            | clickability_test_id, -->
-<!--                            data = upworthy, -->
-<!--                            weights = ~ impressions) -->
-
-<!-- `Model 2` <- fixest::feglm(fml = ctr_100 ~ TOXICITY_dummy + length + complexity + gpt4o_negemo -->
-<!--                            | clickability_test_id, -->
-<!--                            data = upworthy, -->
-<!--                            weights = ~ impressions) -->
-
-<!-- models <- list( -->
-<!--   "Model 1" = `Model 1`, -->
-<!--   "Model 2" = `Model 2` -->
-<!-- ) -->
-
-<!-- modelsummary(models, -->
-<!--              output = "typst", -->
-<!--              coef_map = c("TOXICITY_dummyTRUE" = "Toxicity (=1)", -->
-<!--                           "gpt4o_negemo" = "Negativity"), -->
-<!--              coef_omit = "complexity|length", -->
-<!--              stars = c("*" = 0.05, "**" = 0.01, "***" = 0.001), -->
-<!--              fmt = 3, -->
-<!--              gof_map = c("nobs", "r.squared", "adj.r.squared")) -->
-<!-- ``` -->
-
-
-<!-- Lorem ipsum. -->
-
-<!-- <!-- To contextualize these effect sizes: if the most toxic headlines in the dataset (scoring above 0.6) were compared to civil alternatives for the same articles, the model predicts approximately `r dummy_uplift`% higher click-through rates. --> -->
-
-<!-- ### Discussion -->
-
-<!-- Because clicks were private with no social visibility, this effect cannot be attributed to social signaling. It reflects a direct attentional response to toxic language. The finding is robust to controls for negativity, confirming that toxicity captures something beyond negative valence. -->
-
-<!-- Three features of this pilot, however, leave the core questions of the present project unanswered and motivate the controlled experiment that follows. First, the toxicity measure is effectively binary: fewer than 1% of headlines exceed the classification threshold, and the right tail of the toxicity distribution is too sparse to estimate any relationship between toxicity level and engagement (see @fig-prevalence). -->
-
-<!-- ```{r} -->
-<!-- #| label: fig-prevalence -->
-<!-- #| fig-cap: "Prevalence of toxic and non-toxic headlines." -->
-<!-- #|  -->
-<!-- wrapped_text <- str_wrap(paste0("There are ", -->
-<!--                                 upworthy[TOXICITY >= 0.6, length(unique(headline))], -->
-<!--                                " unique headlines exceeding the toxicity threshold." -->
-<!--                                ),  -->
-<!--                         width = 15) -->
-
-<!-- # Create density data manually for better control -->
-<!-- density_data <- density(unique(upworthy[, .(TOXICITY)])$TOXICITY, bw = 0.033) -->
-<!-- density_df <- data.frame(x = density_data$x, y = density_data$y) -->
-<!-- density_df$fill_color <- ifelse(density_df$x < 0.6, "non_toxic", "toxic") -->
-
-<!-- ggplot(data = unique(upworthy[, .(TOXICITY)]), -->
-<!--        mapping = aes(x = TOXICITY)) + -->
-<!--   theme_minimal() + -->
-<!--   geom_vline(xintercept = 0.6, lty = 2) + -->
-<!--   geom_hline(yintercept = 0) + -->
-<!--   coord_cartesian(ylim = c(0, 5.5), -->
-<!--                   xlim = c(0, 1.1), -->
-<!--                   expand = FALSE) + -->
-<!--   scale_x_continuous(breaks = c(0, 0.6, 1)) + -->
-<!--   geom_density(fill = NA, col = "#000000", bw = 0.033) + -->
-<!--   # Green area (left of vertical line) -->
-<!--   geom_area(data = subset(density_df, x < 0.6),  -->
-<!--             aes(x = x, y = y), fill = "#28a745", alpha = 0.5) + -->
-<!--   # Red area (right of vertical line) -->
-<!--   geom_area(data = subset(density_df, x >= 0.6),  -->
-<!--             aes(x = x, y = y), fill = "#af002a", alpha = 0.5) + -->
-<!--   labs(y = "PDF", x = "Predicted Toxicity Score") +  -->
-<!--   annotate("text", x = 0.62, y = 3, hjust = 0, vjust = 1, -->
-<!--          label = wrapped_text,  -->
-<!--          size = 3) -->
-<!-- ``` -->
-
-<!-- Whether attention increases monotonically with toxicity dose, saturates, or inverts at high levels cannot be determined from these data. Second, the operative mechanism in the pilot is direct engagement with the toxic stimulus itself. The present research requires a different mechanism, excitation transfer, whereby arousal generated by toxic feed content spills over to an adjacent sponsored post that is itself non-toxic. This transfer cannot be examined in a setting where there is no adjacent stimulus and no feed context. Third, the pilot contains no brand or reputational outcome. Whether the attentional environment that benefits engagement also generates associative contamination, and whether these effects offset or compound one another, is entirely outside its scope. -->
-
-<!-- [Insert Table 2 here: the fixed effects regression results, anchoring the 9.9% estimate and showing robustness to negativity controls.] -->
-
-<!-- The experimental design that follows addresses each limitation in turn. A dose-response manipulation with stimulus sampling generates continuous variation in feed-level toxicity across a range that field data cannot achieve. Embedding a sponsored post within the feed simultaneously captures the attention transfer mechanism and enables measurement of brand attitude, allowing estimation of both the attentional and reputational effects within the same exposure. -->
-
+```{=typst}
+#pagebreak()
+```
 
 # References
 
 :::{#refs}
 :::
+
+```{=typst}
+#pagebreak()
+```
+
+# Appendix {.appendix}
+
+## Stimulus Corpus Construction {#sec-appendix-stimuli}
+
+### Rationale for AI-Generated Stimuli
+
+Constructing a stimulus corpus that spans the full toxicity range while holding other content attributes constant is not feasible with scraped content. Toxic posts in the wild tend to be shorter, more negatively valenced, more emotionally intense, and more syntactically informal than civil posts. Manually matching or adjusting scraped posts to isolate toxicity from these correlated attributes is both labor-intensive and practically limited: any manual revision that removes toxic language also changes tone, length, and affect. We therefore generate the corpus synthetically using a large language model [see also @TomainoEtAl_2025], which allows systematic variation of toxicity level as an independent dimension while orthogonally varying post length, writing style, thematic focus, and format. [Something we should test.]{style="background-color:yellow"}
+
+Concerns about ecological validity are addressed through two design choices. First, we calibrate all generated posts against the Google Perspective API [@AridorEtAl_2024], the industry-standard classifier used in platforms' own moderation systems, which provides an objective anchor independent of the generation process. Second, we rephrase all posts through a separate humanization step that eliminates repetitive LLM phrasing patterns and introduces realistic orthographic variation (e.g., missing apostrophes, dropped word-endings) calibrated to the level present in organic social media text. The humanization prompt is anchored by a set of real posts scraped from the social media platform X about *Avatar: Fire and Ash*, which serve as few-shot register examples. These design choices are intended to ensure that the posts read as authentic organic discourse rather than machine-generated text, while preserving the controlled toxicity distribution that natural data cannot provide.
+
+### Generation Pipeline
+
+The corpus was constructed in four stages: (1) initial generation across the full toxicity spectrum, (2) gap-filling via a generate-and-filter loop, (3) humanization and toxicity rescoring, and (4) AI-based content annotation.
+
+**Stage 1: Initial generation.** We prompted the Grok-3 API (xAI) to generate posts about *Avatar: Fire and Ash* (2025) across four broad toxicity levels: civil, mildly toxic, toxic, and highly toxic. Each generation call independently sampled from a set of orthogonal variation dimensions -- post length (very short to long), writing style (casual, formal, emphatic, abbreviated, deadpan, meme-register), thematic focus (specific characters, box office performance, visual effects, personal reactions, comparisons to earlier entries in the franchise), and post format (statement, rhetorical question, reaction, listicle, fan theory). A factual context block injected into the system message grounded all posts in verified information about the film (cast, characters, box office gross, critical reception, Cameron's stated plans for sequels). A discourse-hook dimension sampled from a list of recurring fan debate topics (e.g., the underuse of the villain Varang, the divisive portrayal of Spider, Disney's reported plans to reduce future budgets) to ensure posts reflected the actual topical structure of audience discourse rather than generic movie reactions.
+
+**Stage 2: Gap-filling.** Initial generation produced adequate coverage at the low and high extremes but left sparse coverage in the moderate range (Perspective scores approximately 0.15-0.65) and in the extreme upper tail (scores above 0.80). Two supplementary scripts addressed these gaps using a generate-and-filter loop: posts were generated with target-band guidance and accepted only when their Perspective API score fell within the specified interval; otherwise generation was retried up to a fixed maximum. The moderate-range script targeted three sub-bands (0.15-0.35, 0.35-0.50, 0.50-0.65). The extreme-range script crossed two upper bands (0.65-0.80, 0.80-1.00) with five content moderation categories (harassment, hate speech, threatening language, sexually explicit content, and content promoting illicit activity, following the OpenAI moderation taxonomy), ensuring variety within the toxic pool beyond simple profanity. A fourth script targeted the low end of the civil range (0.00-0.15), covering fan enthusiasm, craft appreciation, and emotional responses that are absent from generation pipelines optimized for toxicity variation. All generation scripts used the same factual context block, discourse hooks, and variation dimensions as Stage 1.
+
+**Stage 3: Humanization and rescoring.** All generated posts were pooled and sampled to approximate a uniform distribution across ten equal-width toxicity bins (target: 50 posts per bin; 500 posts total). Because humanization systematically shifts Perspective scores downward (rephrased posts were generally less aggressive in surface form than the originals) the three highest bins were oversampled before humanization (by factors of 2, 3, and 5 respectively) and re-capped at the target after rescoring. Sampled posts were sent in batches to Grok-3 with instructions to rephrase each post so it reads as a different real person's contribution, while preserving the toxicity intensity indicated by its Perspective score. The rephrasing prompt included a structural avoidance list (overused openings and trigrams detected by n-gram frequency analysis across the sampled pool), a set of nine register-calibrated few-shot examples spanning the full toxicity range, and instructions varying post length, movie reference style, and thematic angle. All posts were then rescored with the Perspective API, and the final corpus was assembled by re-capping at 50 posts per bin on the rescored distribution. Typos were injected post-hoc.
+
+**Stage 4: Content annotation.** Each post in the final corpus was annotated using two complementary AI-based scoring systems. First, the OpenAI `omni-moderation-latest` model provided category-level probability scores across eleven content dimensions (e.g., harassment, hate speech, sexual content, violence), characterizing the content type of each post independently of its Perspective toxicity score. Second, GPT-4o-mini (version `gpt-4o-mini-2024-07-18`) provided five ratings per post via structured JSON output: a continuous toxicity score (0--1) using a definition that does not reference Perspective API: 
+
+>_"language that a reasonable person would find attacking, devaluing, or harmful, or that disrupts civil, constructive discourse"_, 
+
+a three-level valence rating toward the film (negative, mixed, positive), a three-level stance toward seeing the film (warn, neutral, recommend), an emotionality rating (low, medium, high), and a sarcasm indicator. The GPT-4o-mini toxicity rating serves as a model-independent cross-validation of the Perspective scores. The categorical ratings enable post-hoc analyses examining whether any observed effects of toxicity dose are moderated by the specific type of toxicity that participants were exposed to.
+
+### Corpus Characteristics
+
+```{r corpus-description}
+n_organic   <- corpus[sponsored == 0, .N]
+tox_min     <- corpus[sponsored == 0, min(toxicity)]
+tox_max     <- corpus[sponsored == 0, max(toxicity)]
+tox_mean    <- corpus[sponsored == 0, mean(toxicity)]
+tox_sd      <- corpus[sponsored == 0, sd(toxicity)]
+n_toxic     <- corpus[sponsored == 0 & toxicity >= 0.6, .N]
+n_civil     <- corpus[sponsored == 0 & toxicity < 0.6, .N]
+pct_toxic   <- n_toxic / n_organic
+```
+
+The final corpus contains `r n_organic` organic posts spanning a Perspective toxicity range of [`r apa(tox_min, decimals = 3, leading = TRUE)`, `r apa(tox_max, decimals = 3, leading = TRUE)`] (mean = `r apa(tox_mean, decimals = 3, leading = TRUE)`, SD = `r apa(tox_sd, decimals = 3, leading = TRUE)`). Applying the classification threshold of 0.6 yields `r n_civil` civil posts (`r scales::percent(1 - pct_toxic, accuracy = 0.1)`) and `r n_toxic` toxic posts (`r scales::percent(pct_toxic, accuracy = 0.1)`), providing sampling pools of sufficient depth for the dose-response design. @fig-corpus-dist shows the Perspective score distribution across the full corpus. @tbl-corpus-examples shows illustrative posts from five toxicity bands.
+
+:::: {.place arguments='top, scope: "parent", float: true'}
+
+```{r fig-corpus-dist}
+#| fig-cap: "Distribution of Perspective API toxicity scores in the stimulus corpus. Dashed vertical line marks the conventional toxic/civil threshold (0.6). Bars correspond to the ten sampling bins used to ensure coverage across the full toxicity range."
+#| fig-width: 5
+#| fig-height: 2.8
+
+dt_organic <- corpus[sponsored == 0]
+
+ggplot(dt_organic, aes(x = toxicity)) +
+  geom_histogram(binwidth = 0.1, boundary = 0,
+                 fill = "#111118", colour = "white", linewidth = 0.3) +
+  geom_vline(xintercept = 0.6, linetype = "dashed",
+             colour = "#a30d4e", linewidth = 0.6) +
+  scale_x_continuous(breaks = seq(0, 1, 0.2), limits = c(0, 1)) +
+  labs(x = "Perspective toxicity score", y = "Posts") +
+  theme_minimal(base_size = 10) +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major.x = element_blank())
+```
+
+::::
+
+```{r corpus-confounds}
+dt_organic <- corpus[sponsored == 0]
+dt_organic[, word_count := lengths(strsplit(trimws(text), "\\s+"))]
+dt_organic[, bin        := cut(toxicity, breaks = seq(0, 1, 0.1),
+                               labels = 0:9,
+                               include.lowest = TRUE, right = FALSE)]
+
+# Word count by bin
+wc_by_bin   <- dt_organic[, .(mean_wc = mean(word_count),
+                               sd_wc   = sd(word_count)), by = bin]
+
+# Spearman correlation: does word count track toxicity?
+rho_wc      <- cor(dt_organic$word_count, dt_organic$toxicity, method = "spearman")
+
+# Convergent validity: Perspective vs GPT
+dt_valid    <- dt_organic[!is.na(gpt_toxicity)]
+r_pg        <- cor(dt_valid$toxicity, dt_valid$gpt_toxicity)
+n_valid     <- nrow(dt_valid)
+
+# Bootstrap 95% CI for r_pg
+set.seed(230691)
+boot_r <- replicate(1000, {
+  idx <- sample(n_valid, replace = TRUE)
+  cor(dt_valid$toxicity[idx], dt_valid$gpt_toxicity[idx])
+})
+r_pg_lo <- quantile(boot_r, 0.025)
+r_pg_hi <- quantile(boot_r, 0.975)
+```
+
+**Convergent validity.** The Perspective API score and the GPT-4o-mini rating are correlated at *r* = `r apa(r_pg, decimals = 2, leading = FALSE)` (95% bootstrap CI [`r apa(r_pg_lo, decimals = 2, leading = FALSE)`, `r apa(r_pg_hi, decimals = 2, leading = FALSE)`]; *N* = `r n_valid` posts), indicating that the two automated measures converge on the same underlying construct despite relying on independent model families and training objectives. @fig-corpus-scatter displays the joint distribution.
+
+:::: {.place arguments='top, scope: "parent", float: true'}
+
+```{r fig-corpus-scatter}
+#| fig-cap: "Convergent validity of the two automated toxicity measures. Each point is one stimulus post. The line is an OLS fit. Points are jittered slightly to reduce overplotting."
+#| fig-width: 3.5
+#| fig-height: 3.2
+
+ggplot(dt_valid, aes(x = toxicity, y = gpt_toxicity)) +
+  geom_point(alpha = 0.25, size = 0.9, colour = "#111118",
+             position = position_jitter(width = 0.005, height = 0.005,
+                                        seed = 230691)) +
+  geom_smooth(method = "lm", se = TRUE, colour = "#a30d4e",
+              fill = "#a30d4e", alpha = 0.15, linewidth = 0.8) +
+  annotate("text", x = 0.05, y = 0.93,
+           label = paste0("italic(r) == ", round(r_pg, 2)),
+           parse = TRUE, hjust = 0, size = 3, colour = "#4a4a60") +
+  scale_x_continuous(breaks = seq(0, 1, 0.2), limits = c(0, 1)) +
+  scale_y_continuous(breaks = seq(0, 1, 0.2), limits = c(0, 1)) +
+  labs(x = "Perspective score", y = "GPT-4o-mini score") +
+  theme_minimal(base_size = 10) +
+  theme(panel.grid.minor = element_blank())
+```
+
+::::
+
+**Potential confounds.** A concern with any constructed stimulus corpus is that the intended manipulation — toxicity — may co-vary with unintended text features that could independently affect participant responses. The two most plausible confounds are post length and readability. We examined both across the ten toxicity bins. Post length (word count) showed no systematic relationship with toxicity (Spearman *ρ* = `r apa(rho_wc, decimals = 2, leading = FALSE)`), confirming that longer posts are not disproportionately concentrated in any part of the toxicity range. Readability (Flesch-Kincaid grade level) was likewise approximately uniform across bins (see @tbl-corpus-confounds). Beyond these surface features, all posts share a common topic (Avatar: Fire and Ash), were generated from the same prompt structure, and cover a comparable range of aspects (plot, cast, visuals, comparisons to prior instalments). Systematic variation in toxicity level was therefore not accompanied by systematic variation in topic, framing, or linguistic complexity.
+
+:::: {.place arguments='top, scope: "parent", float: true'}
+
+```{r tbl-corpus-confounds}
+#| tbl-cap: "Post length and readability by toxicity bin. Word count and Flesch-Kincaid grade level (FK-GL) are averaged within each bin. Absence of a monotone trend indicates that toxicity does not co-vary with these surface features."
+
+# Syllable count approximated by counting vowel clusters
+count_syllables <- function(words) {
+  sapply(tolower(words), function(w) {
+    max(length(strsplit(gsub("[^aeiouy]+", " ", trimws(w)), "\\s+")[[1]]), 1L)
+  })
+}
+
+dt_organic[, sentences := pmax(lengths(strsplit(text, "[.!?]+")), 1L)]
+dt_organic[, syllables := sapply(strsplit(text, "\\s+"),
+                                  function(ws) sum(count_syllables(ws)))]
+dt_organic[, fkgl      := 0.39 * (word_count / sentences) +
+                          11.8  * (syllables  / word_count) - 15.59]
+
+tbl_conf <- dt_organic[, .(
+  Bin          = paste0("[", as.numeric(as.character(bin)) * 0.1, "\u2013",
+                        as.numeric(as.character(bin)) * 0.1 + 0.1, ")"),
+  N            = .N,
+  `Words M`    = round(mean(word_count), 1),
+  `Words SD`   = round(sd(word_count),   1),
+  `FK-GL M`    = round(mean(fkgl),       1),
+  `FK-GL SD`   = round(sd(fkgl),         1)
+), keyby = bin][, bin := NULL][]
+
+flextable(tbl_conf) |>
+  fontsize(size = 9, part = "all") |>
+  theme_booktabs()
+```
+
+::::
+
+:::: {.place arguments='top, scope: "parent", float: true'}
+
+```{r tbl-corpus-examples}
+#| tbl-cap: "Illustrative stimulus posts sampled from five toxicity bands. Perspective score is the Google Perspective API toxicity score; GPT score is the model-independent GPT-4o-mini rating."
+
+bands <- list(
+  c(0.00, 0.10), c(0.20, 0.30), c(0.40, 0.55),
+  c(0.65, 0.75), c(0.85, 1.00)
+)
+
+set.seed(230691)
+examples <- rbindlist(lapply(bands, function(b) {
+  pool <- corpus[sponsored == 0 & toxicity >= b[1] & toxicity < b[2]]
+  if (nrow(pool) == 0) return(NULL)
+  row <- pool[sample(.N, 1)]
+  data.table(
+    Perspective = round(row$toxicity, 3),
+    GPT         = round(row$gpt_toxicity, 3),
+    Post        = row$text
+  )
+}))
+
+flextable(examples) |>
+  set_header_labels(Perspective = "Perspective", GPT = "GPT", Post = "Post text") |>
+  width(j = "Post", width = 5.5) |>
+  width(j = c("Perspective", "GPT"), width = 0.7) |>
+  fontsize(size = 9, part = "all") |>
+  theme_booktabs()
+```
+
+::::
+
+## Human Validation of Toxicity Scores {#sec-appendix-validation}
+
+### Design
+
+To establish the criterion validity of both automated toxicity measures -- the Perspective API score and the GPT-4o-mini rating -- we collected human toxicity ratings from a separate sample of Prolific participants. We randomly drew 100 posts from the stimulus corpus, stratified across the ten Perspective score bins (10 posts per bin) to ensure coverage across the full toxicity range. Pure random sampling would undersample the sparse upper tail and provide no validation signal where classifier accuracy is hardest to establish.
+
+The study was implemented in oTree [@oTree] and delivered to participants via Prolific. Eligibility was restricted to participants with a 99% or higher task-approval rate and self-reported fluency in English. Each participant rated all 100 posts. Posts were presented in randomized order across participants, 10 per page, with the toxicity definition displayed as a fixed header on every page. Participants moved a continuous slider (0--100) to indicate their rating for each post before advancing. The slider had no default position, requiring an active response for every item.
+
+Toxicity was defined for raters as follows: 
+
+>_"language that a reasonable person would find attacking, devaluing, or harmful -- or that disrupts civil, constructive discourse."_
+
+This definition was also used for the GPT-4o-mini ratings, which ensures that the human and GPT ratings share a common construct definition and that any correlation between them reflects shared construct coverage rather than shared operationalization with the Perspective API.
+
+Three attention-check posts were embedded at fixed positions within the randomized sequence. Two were criterion items with near-universal expected responses: one unambiguously civil post (expected rating near 0) and one unambiguously toxic post (expected rating near 100). Participants who rated the civil check above 40 or the toxic check below 60 were excluded prior to analysis. A third item at an intermediate toxicity level served as a diagnostic check on rating consistency but was not used as an exclusion criterion.
+
+### Analysis
+
+The primary validation statistics are the Pearson correlations between the mean human rating per post (averaged across retained raters) and, respectively, the Perspective API score and the GPT-4o-mini score. A higher correlation indicates better alignment between the automated measure and the human construct. We report both correlations alongside their 95% bootstrap confidence intervals (1,000 resamples at the post level).
+
+Inter-rater reliability is reported as Krippendorff's $\alpha$ for ordinal data, computed across all retained raters and all 100 posts. Values above 0.80 indicate strong agreement; values between 0.67 and 0.80 are considered acceptable for exploratory purposes.
+
+We also conduct the discrimination check recommended by @BarberaEtAl_2020: posts are assigned to deciles of the Perspective score distribution and the mean human rating within each decile is plotted. A well-calibrated automated measure should produce a monotone increasing relationship. Deviations from monotonicity identify score ranges where the classifier diverges from human judgment.
+
+### Results
+
+```{r validation-results}
+#| eval: false
+
+# Placeholder — update once validation data are collected
+# validation <- fread("../../data/validation/human_ratings.csv")
+#
+# # Exclude failed attention checks
+# validation <- validation[attn_civil <= 40 & attn_toxic >= 60]
+#
+# # Mean human rating per post
+# mean_ratings <- validation[, .(human = mean(rating)), by = post_id]
+# mean_ratings <- merge(mean_ratings, corpus[, .(post_id = doc_id, toxicity, gpt_toxicity)], by = "post_id")
+#
+# r_perspective <- cor(mean_ratings$human, mean_ratings$toxicity)
+# r_gpt         <- cor(mean_ratings$human, mean_ratings$gpt_toxicity)
+```
+
+*Validation data will be collected prior to submission and results reported here.*
+
+
 

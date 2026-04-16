@@ -1,0 +1,694 @@
+---
+title: "Stimuli Humanization & Uniform Sampling"
+author: "Hauke Roggenkamp"
+format:
+  html:
+    embed-resources: true
+execute:
+  echo: false
+---
+
+## Overview
+
+This script takes all generated tweets, samples them to approximate a uniform toxicity distribution, detects repetitive LLM patterns, rephrases tweets in batches to sound more human and diverse, rescores the full corpus with the Perspective API in a single pass, and injects a small number of realistic typos post-hoc. Two intermediate datasets are saved: the full raw pool before sampling, and the sampled-but-not-yet-humanized set. Both allow resampling or re-humanization without regenerating posts.
+
+## Setup
+
+```{python}
+#| label: setup
+
+import os
+import json
+import glob
+import pandas as pd
+import numpy as np
+from pathlib import Path
+from collections import Counter
+from dotenv import load_dotenv
+from openai import OpenAI
+import requests
+import time
+import random
+import re
+from IPython.display import display, Markdown, HTML
+from itables import show
+from tqdm import tqdm
+
+load_dotenv(Path(__file__).parent.parent / ".env" if "__file__" in dir() else "../.env")
+
+GROK_MODEL = "grok-3"
+SEED = 23061990
+random.seed(SEED)
+np.random.seed(SEED)
+
+# --- Configuration ---
+N_BINS        = 10
+TWEETS_PER_BIN = 50    # target per bin in the final corpus
+BATCH_SIZE    = 15
+
+# Humanization pulls toxicity scores down, so oversample the upper bins
+# to compensate. These multipliers are applied at sampling time; the final
+# corpus is still capped at TWEETS_PER_BIN per bin after rescoring.
+# Based on observed drift: bin 7 loses ~40%, bins 8-9 lose ~65-95%.
+BIN_OVERSAMPLE = {
+    7: 2,   # 0.7-0.8: sample 2× to land ~50 after drift
+    8: 3,   # 0.8-0.9: sample 3× to land ~50 after drift
+    9: 5,   # 0.9-1.0: sample 5× — very sparse, take everything available
+}
+
+# Typo injection rates (post-humanization, by toxicity band)
+TYPO_RATE_CIVIL  = 0.30   # toxicity < 0.4
+TYPO_RATE_MID    = 0.20   # toxicity 0.4–0.6
+TYPO_RATE_TOXIC  = 0.10   # toxicity > 0.6
+
+INTERMEDIATE_RAW     = Path("output/all_generated_tweets.csv")
+INTERMEDIATE_SAMPLED = Path("output/sampled_pre_humanization.csv")
+OUTPUT_PATH          = Path("../software/DICE/static/data/toxic_movie_reactions.csv")
+
+# Casual movie references; prefer these over the full title
+MOVIE_VARIANTS = [
+    "Fire and Ash",
+    "the new Avatar",
+    "Avatar 3",
+    "the latest Avatar",
+    "the recent Avatar film",
+    "the new Avatar movie",
+    "Avatar: Fire and Ash",   # kept but de-emphasised by position in list
+]
+```
+
+```{python}
+#| label: api-setup
+
+client = OpenAI(
+    api_key=os.environ.get("XAI_API_KEY"),
+    base_url="https://api.x.ai/v1"
+)
+
+client_oai = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
+def get_perspective_score(text, retries=4, base_wait=2.0):
+    """Get toxicity score from Perspective API with exponential backoff on 429s."""
+    api_key = os.environ.get("PERSPECTIVE_API_KEY")
+    url = f"https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze?key={api_key}"
+    payload = {
+        "comment": {"text": text},
+        "languages": ["en"],
+        "requestedAttributes": {
+            "TOXICITY": {}, "SEVERE_TOXICITY": {},
+            "INSULT": {}, "PROFANITY": {}, "THREAT": {}
+        }
+    }
+    for attempt in range(retries):
+        try:
+            response = requests.post(url, json=payload)
+            if response.status_code == 429:
+                wait = base_wait * (2 ** attempt)
+                print(f"  Rate limited, waiting {wait:.0f}s before retry {attempt + 1}/{retries}")
+                time.sleep(wait)
+                continue
+            response.raise_for_status()
+            scores = response.json()["attributeScores"]
+            return {k.lower(): v["summaryScore"]["value"] for k, v in scores.items()}
+        except Exception as e:
+            print(f"Perspective API error: {e}")
+            return None
+    print("  Perspective API: max retries reached, returning None")
+    return None
+```
+
+## Step 1: Load, Sample & Save Intermediates
+
+```{python}
+#| label: load-and-sample
+
+# Load all generated tweets and save the full pool as an intermediate.
+# This always reads from source files so newly generated tweets are included.
+Path("output").mkdir(exist_ok=True)
+
+files = glob.glob("output/tweets_*.csv")
+dfs = [pd.read_csv(f) for f in files]
+raw = pd.concat(dfs, ignore_index=True).dropna(subset=["perspective_toxicity"])
+raw.to_csv(INTERMEDIATE_RAW, index=False)
+display(Markdown(f"**Loaded {len(raw)} tweets** from {len(files)} source files (saved to `{INTERMEDIATE_RAW}`)"))
+
+
+# Bin by toxicity and sample uniformly
+bin_edges = np.linspace(0, 1, N_BINS + 1)
+raw["tox_bin"] = pd.cut(raw["perspective_toxicity"], bins=bin_edges, labels=False, include_lowest=True)
+
+sampled = []
+for b in range(N_BINS):
+    pool   = raw[raw["tox_bin"] == b]
+    target = TWEETS_PER_BIN * BIN_OVERSAMPLE.get(b, 1)
+    n      = min(target, len(pool))
+    if n > 0:
+        sampled.append(pool.sample(n=n, random_state=SEED))
+    if n < target:
+        print(f"  Bin [{bin_edges[b]:.1f}-{bin_edges[b+1]:.1f}]: only {n}/{target} available (oversample ×{BIN_OVERSAMPLE.get(b, 1)})")
+
+df = pd.concat(sampled, ignore_index=True)
+display(Markdown(f"**Sampled {len(df)} tweets** for uniform distribution"))
+
+# Save pre-humanization sample (allows resampling without re-humanizing)
+df.to_csv(INTERMEDIATE_SAMPLED, index=False)
+display(Markdown(f"Saved pre-humanization sample to `{INTERMEDIATE_SAMPLED}`"))
+
+# Show distribution
+counts, _ = np.histogram(df["perspective_toxicity"], bins=bin_edges)
+for i, c in enumerate(counts):
+    print(f"  [{bin_edges[i]:.1f} - {bin_edges[i+1]:.1f}]: {c}")
+```
+
+## Step 2: Detect Repetitive Patterns
+
+```{python}
+#| label: detect-repetition
+
+def get_ngrams(text, n):
+    words = text.lower().split()
+    return [" ".join(words[i:i+n]) for i in range(len(words) - n + 1)]
+
+bigrams  = Counter()
+trigrams = Counter()
+openings = Counter()
+
+for text in df["text"]:
+    bigrams.update(get_ngrams(text, 2))
+    trigrams.update(get_ngrams(text, 3))
+    words = text.split()[:4]
+    if words:
+        openings[" ".join(words).lower()] += 1
+
+# Flag patterns appearing in > 4% of tweets
+threshold = max(3, int(len(df) * 0.04))
+
+overused_trigrams = [p for p, c in trigrams.most_common(50) if c >= threshold]
+overused_openings = [p for p, c in openings.most_common(20) if c >= threshold]
+
+display(Markdown(f"**Repetitive patterns detected:**"))
+print(f"  Overused trigrams ({len(overused_trigrams)}): {overused_trigrams[:10]}")
+print(f"  Overused openings ({len(overused_openings)}): {overused_openings[:10]}")
+
+# Combined avoidance string passed to the rephrasing prompt
+avoid_phrases = overused_trigrams[:15] + overused_openings[:5]
+repetition_warning = ", ".join(f'"{p}"' for p in avoid_phrases) if avoid_phrases else ""
+```
+
+## Step 3: Batch Rephrase for Humanization
+
+```{python}
+#| label: rephrase-functions
+
+# Authentic organic posts used as few-shot register anchors.
+# Five real posts (lightly cleaned: hashtags and @mentions removed),
+# four synthetic posts written to cover the moderate and toxic range
+# using discourse patterns observed in the real Avatar: Fire and Ash conversation.
+FEW_SHOT_EXAMPLES = """
+EXAMPLES of authentic organic posts — use these to calibrate voice and register. Do NOT copy them.
+
+[civil ~0.02] "Absolutely spectacular and mesmerizing. You feel the burns, anger and hard emotions. That 3rd act, holy shit. Cameron in god mode. Entry of Toruk Makto is peak elevation. Oona Chaplin shines as Varang. Must watch in IMAX 3D."
+
+[civil ~0.03] "One of my favorite things about this franchise is that Neytiri always shows up to rescue Jake. She's more than just his knight in shining armor. Jake truly couldnt have come this far without her. He's nothing without Neytiri and he KNOWS that."
+
+[civil ~0.04] "AVATAR: FIRE AND ASH is angry, trippy, and the sexiest movie of the year. I took my 3D glasses off like Sam Neill in Jurassic Park at one point to make sure what I was seeing was real."
+
+[civil/mixed ~0.10] "First half better than Way of Water. Emotions worked bigtime. Dialogues still shit. Characters are good. Visuals obviously mindblowing. Threat feels real."
+
+[mildly dismissive ~0.18] "Dont believe twitter movie reviewers. They just farming engagement for lunch money."
+
+[moderate ~0.42] "They brought Quaritch back for the third time. Third. Time. At some point you have to ask whether Cameron actually has any ideas left or just keeps recycling the same villain because nobody at the studio had the guts to tell him no."
+
+[moderate ~0.58] "Spider is the worst written character in this franchise and the fact that they made him central to the plot again is baffling. Every scene he's in drags. You spent three hours on this guy and I still dont care if he lives or dies."
+
+[toxic ~0.72] "The people defending this movie are the same idiots who will buy anything with the Avatar logo on it. Varang was wasted, the plot is a copy-paste, and Disney is already planning cheaper sequels because they know the fanbase is too dumb to demand better."
+
+[very toxic ~0.85] "Fire and Ash is a $400M insult to anyone who actually thinks about movies. Cameron hasnt had an original idea since Titanic and the bootlickers who give this dreck 5 stars should be embarrassed. Disney suits win again while actual filmmaking dies."
+"""
+
+
+def rephrase_batch(tweets_batch, scores_batch, repetition_warning):
+    """Send a batch of tweets to Grok for humanization."""
+    numbered = "\n".join(
+        f"{i+1}. [toxicity={s:.2f}] {t}"
+        for i, (t, s) in enumerate(zip(tweets_batch, scores_batch))
+    )
+
+    structural = (
+        "AVOID these overused openings and frames: "
+        "'How can anyone', 'Man,', 'Hot take:', 'Real talk,', 'Honestly,', "
+        "and the 'haters gonna hate' / 'if you hate this' framing. "
+        "Do not start more than one tweet in this batch with the same word."
+    )
+
+    movie_ref = (
+        f"Prefer short, casual movie references: {', '.join(MOVIE_VARIANTS[:-1])}. "
+        "Some tweets should not name the movie at all; use 'it', 'this film', 'this one'. "
+        "Use the full title 'Avatar: Fire and Ash' sparingly, at most once per batch."
+    )
+
+    length = (
+        "Vary post length: some very short (5-10 words), most medium (15-25 words), "
+        "a few longer (30+ words). Do not make every tweet a full sentence."
+    )
+
+    themes = (
+        "Vary the angle: recommending or warning others, reacting to a specific scene, "
+        "comparing to other films or earlier Avatar entries, commenting on performances, "
+        "discussing hype vs. reality, describing the watching experience with others."
+    )
+
+    avoid_section = (
+        f"ALSO AVOID these detected overused phrases: {repetition_warning}"
+        if repetition_warning else ""
+    )
+
+    prompt = (
+        f"Below are {len(tweets_batch)} AI-generated tweets about a movie. "
+        "Rewrite each so it sounds like a different real person posting on social media.\n\n"
+        "TOXICITY: Each tweet has a Perspective API score [0 = civil, 1 = very toxic]. "
+        "Preserve the intensity: do not soften harsh tweets or sharpen civil ones.\n\n"
+        f"{structural}\n\n"
+        f"{movie_ref}\n\n"
+        f"{length}\n\n"
+        f"{themes}\n\n"
+        f"{FEW_SHOT_EXAMPLES}\n\n"
+        f"{avoid_section}\n\n"
+        "OTHER RULES:\n"
+        "- Preserve the original positive/negative opinion of each tweet.\n"
+        "- Vary grammar style: some casual with abbreviations, some articulate.\n"
+        "- No hashtags or @mentions. No emojis unless the original has them.\n"
+        "- Do NOT use em dashes (--). Real social media users do not write em dashes.\n\n"
+        f"Output ONLY the rewritten tweets, numbered 1-{len(tweets_batch)}, one per line. "
+        "Do NOT include the [toxicity=...] tag.\n\n"
+        f"{numbered}"
+    )
+
+    response = client.chat.completions.create(
+        model=GROK_MODEL,
+        messages=[
+            {"role": "system", "content": "You are an expert editor making AI-generated tweet stimuli sound authentically human for academic research."},
+            {"role": "user", "content": prompt},
+        ],
+        max_tokens=2500,
+        temperature=0.9,
+    )
+
+    raw_output = response.choices[0].message.content.strip()
+    results = []
+    for line in raw_output.split("\n"):
+        line = line.strip()
+        match = re.match(r"^\d+[\.\)]\s*(.+)$", line)
+        if match:
+            results.append(match.group(1).strip().strip('"'))
+    return results
+```
+
+```{python}
+#| label: rephrase-tweets
+#| output: false
+
+# Sort by toxicity so each batch contains tweets at similar intensity
+df = df.sort_values("perspective_toxicity").reset_index(drop=True)
+
+original_texts  = df["text"].tolist()
+original_scores = df["perspective_toxicity"].tolist()
+rephrased_texts = original_texts.copy()   # default to originals if parsing fails
+
+n_batches = (len(df) + BATCH_SIZE - 1) // BATCH_SIZE
+
+for batch_idx in tqdm(range(n_batches), desc="Rephrasing batches"):
+    start = batch_idx * BATCH_SIZE
+    end   = min(start + BATCH_SIZE, len(df))
+    batch_texts  = original_texts[start:end]
+    batch_scores = original_scores[start:end]
+
+    rewritten = rephrase_batch(batch_texts, batch_scores, repetition_warning)
+
+    for j in range(len(batch_texts)):
+        global_idx = start + j
+        if j < len(rewritten) and rewritten[j]:
+            rephrased_texts[global_idx] = rewritten[j]
+        # else: keeps original set as default above
+
+df["original_text"] = original_texts
+df["text"] = rephrased_texts
+
+n_changed = sum(o != r for o, r in zip(original_texts, rephrased_texts))
+display(Markdown(
+    f"**Rephrased {n_changed}/{len(df)} tweets** "
+    f"(kept {len(df) - n_changed} originals due to parsing failures)"
+))
+```
+
+## Step 4: Rescore with Perspective API
+
+```{python}
+#| label: rescore
+
+final_scores = []
+for text in tqdm(df["text"].tolist(), desc="Rescoring"):
+    result = get_perspective_score(text)
+    final_scores.append(result["toxicity"] if result else None)
+    time.sleep(1.1)   # stay within Perspective API's ~1 QPS free-tier limit
+
+# Fall back to original score if API call failed
+df["new_perspective_toxicity"] = [
+    s if s is not None else orig
+    for s, orig in zip(final_scores, df["perspective_toxicity"])
+]
+
+drift = (df["new_perspective_toxicity"] - df["perspective_toxicity"]).abs()
+boundary_flips = ((df["perspective_toxicity"] < 0.6) != (df["new_perspective_toxicity"] < 0.6)).sum()
+
+display(Markdown("**Toxicity drift after humanization** (|original − rescored|):"))
+print(f"  Mean:   {drift.mean():.4f}")
+print(f"  Median: {drift.median():.4f}")
+print(f"  Max:    {drift.max():.4f}")
+print(f"  Posts crossing 0.6 classification boundary: {boundary_flips}")
+```
+
+## Step 5: Apply Typos
+
+```{python}
+#| label: typo-setup
+
+# Realistic social media typos: apostrophe drops and dropped -ing endings
+APOSTROPHE_SUBS = [
+    ("don't", "dont"),   ("Don't", "Dont"),
+    ("can't", "cant"),   ("Can't", "Cant"),
+    ("it's", "its"),     ("It's", "Its"),
+    ("that's", "thats"), ("That's", "Thats"),
+    ("won't", "wont"),   ("Won't", "Wont"),
+    ("didn't", "didnt"), ("Didn't", "Didnt"),
+    ("isn't", "isnt"),   ("Isn't", "Isnt"),
+    ("you're", "youre"), ("You're", "Youre"),
+    ("they're", "theyre"), ("They're", "Theyre"),
+    ("I've", "Ive"),
+    ("couldn't", "couldnt"), ("Couldn't", "Couldnt"),
+    ("wouldn't", "wouldnt"), ("Wouldn't", "Wouldnt"),
+    ("doesn't", "doesnt"),   ("Doesn't", "Doesnt"),
+    ("there's", "theres"),   ("There's", "Theres"),
+    ("what's", "whats"),     ("What's", "Whats"),
+]
+
+ING_DROPS = [
+    ("watching", "watchin"), ("something", "somethin"),
+    ("nothing",  "nothin"),  ("going",     "goin"),
+    ("doing",    "doin"),    ("talking",   "talkin"),
+    ("looking",  "lookin"),  ("trying",    "tryin"),
+    ("getting",  "gettin"),  ("saying",    "sayin"),
+]
+
+def apply_typos(text, rng):
+    """Apply 1-2 realistic social media typos to a post."""
+    all_subs = APOSTROPHE_SUBS + ING_DROPS
+    applicable = [(old, new) for old, new in all_subs if old in text]
+    if not applicable:
+        return text
+    n = min(int(rng.integers(1, 3)), len(applicable))   # 1 or 2
+    chosen = rng.choice(len(applicable), size=n, replace=False)
+    for idx in chosen:
+        old, new = applicable[idx]
+        text = text.replace(old, new, 1)
+    return text
+
+def typo_rate(toxicity):
+    if toxicity < 0.4:
+        return TYPO_RATE_CIVIL
+    elif toxicity < 0.6:
+        return TYPO_RATE_MID
+    else:
+        return TYPO_RATE_TOXIC
+```
+
+```{python}
+#| label: apply-typos
+
+rng = np.random.default_rng(SEED)
+typo_applied   = []
+texts_with_typos = []
+
+for text, tox in zip(df["text"], df["new_perspective_toxicity"]):
+    if rng.random() < typo_rate(tox):
+        new_text = apply_typos(text, rng)
+        typo_applied.append(new_text != text)
+        texts_with_typos.append(new_text)
+    else:
+        typo_applied.append(False)
+        texts_with_typos.append(text)
+
+df["text"]         = texts_with_typos
+df["typo_applied"] = typo_applied
+
+n_typos = sum(typo_applied)
+display(Markdown(
+    f"**Applied typos to {n_typos}/{len(df)} posts** ({100 * n_typos / len(df):.1f}%)"
+))
+
+# Show a few examples
+examples = df[df["typo_applied"]].sample(n=min(6, n_typos), random_state=SEED)
+for _, row in examples.iterrows():
+    html = f"""
+    <div style="border-left: 3px solid #e67e22; padding: 10px; margin: 8px 0; background: #fdf6ec;">
+        <small>toxicity: {row['new_perspective_toxicity']:.3f}</small>
+        <p style="margin: 4px 0 0 0; color: #888; text-decoration: line-through;">{row['original_text']}</p>
+        <p style="margin: 4px 0 0 0;">{row['text']}</p>
+    </div>
+    """
+    display(HTML(html))
+```
+
+## Step 6: AI-Based Content Ratings
+
+```{python}
+#| label: rating-functions
+
+GPT_RATING_BATCH = 20
+GPT_MODEL        = "gpt-4o-mini-2024-07-18"
+MOD_BATCH        = 32   # omni-moderation-latest accepts up to 32 inputs
+
+def get_moderation_scores_batch(texts):
+    """Score a batch of texts with omni-moderation-latest."""
+    try:
+        response = client_oai.moderations.create(
+            model="omni-moderation-latest",
+            input=texts
+        )
+        results = []
+        for r in response.results:
+            scores = {k.replace("/", "_"): v for k, v in r.category_scores.model_dump().items()}
+            results.append(scores)
+        return results
+    except Exception as e:
+        print(f"Moderation API error: {e}")
+        return [None] * len(texts)
+
+
+RATING_SYSTEM = "You are rating social media posts about a movie for academic research. Be precise and consistent."
+
+RATING_INSTRUCTIONS = """
+For each numbered post, provide ratings on these five dimensions:
+
+- toxicity (float 0-1): Toxicity is language that a reasonable person would find attacking, devaluing, or harmful — or that disrupts civil, constructive discourse. Posts are reactions to a movie; toxicity may be directed at the film, its creators, or other viewers. (0 = not at all toxic, 1 = extremely toxic)
+- valence: the poster's overall emotional tone toward the movie — "negative", "mixed", or "positive"
+- stance: whether the post recommends or warns against seeing the movie — "warn", "neutral", or "recommend"
+- emotionality: the intensity of emotional expression in the post — "low", "medium", or "high"
+- sarcasm: whether the post uses sarcasm or irony — true or false
+
+Return a JSON object with key "ratings" — an array of objects in the same order as the input, each with keys: toxicity, valence, stance, emotionality, sarcasm.
+"""
+
+def get_gpt_ratings_batch(tweets_batch):
+    """Rate a batch of tweets via gpt-4o-mini, returning a list of rating dicts."""
+    numbered = "\n".join(f"{i+1}. {t}" for i, t in enumerate(tweets_batch))
+    try:
+        response = client_oai.chat.completions.create(
+            model=GPT_MODEL,
+            messages=[
+                {"role": "system", "content": RATING_SYSTEM},
+                {"role": "user",   "content": RATING_INSTRUCTIONS + "\n\n" + numbered},
+            ],
+            response_format={"type": "json_object"},
+            temperature=0,
+        )
+        data = json.loads(response.choices[0].message.content)
+        return data.get("ratings", [])
+    except Exception as e:
+        print(f"GPT rating error: {e}")
+        return []
+```
+
+```{python}
+#| label: run-ratings
+#| output: false
+
+texts_to_rate = df["text"].tolist()
+n_texts = len(texts_to_rate)
+
+# --- omni-moderation-latest ---
+mod_results = [None] * n_texts
+for i in tqdm(range(0, n_texts, MOD_BATCH), desc="Moderation scoring"):
+    batch  = texts_to_rate[i:i + MOD_BATCH]
+    scores = get_moderation_scores_batch(batch)
+    for j, s in enumerate(scores):
+        mod_results[i + j] = s
+
+# --- gpt-4o-mini ratings ---
+gpt_results = [None] * n_texts
+for i in tqdm(range(0, n_texts, GPT_RATING_BATCH), desc="GPT-4o-mini ratings"):
+    batch   = texts_to_rate[i:i + GPT_RATING_BATCH]
+    ratings = get_gpt_ratings_batch(batch)
+    for j, r in enumerate(ratings):
+        if j < len(batch):
+            gpt_results[i + j] = r
+
+# Flatten into columns and attach to df
+mod_df = pd.DataFrame([r if r is not None else {} for r in mod_results]).add_prefix("mod_")
+gpt_df = pd.DataFrame([r if r is not None else {} for r in gpt_results]).add_prefix("gpt_")
+df = pd.concat([df.reset_index(drop=True), mod_df, gpt_df], axis=1)
+
+n_mod_ok = mod_df.notna().all(axis=1).sum()
+n_gpt_ok = gpt_df.notna().all(axis=1).sum()
+display(Markdown(
+    f"**Ratings complete:** {n_mod_ok}/{n_texts} moderation scores, {n_gpt_ok}/{n_texts} GPT ratings"
+))
+```
+
+```{python}
+#| label: ratings-summary
+
+# GPT toxicity vs. Perspective API
+corr = df["gpt_toxicity"].corr(df["new_perspective_toxicity"])
+display(Markdown(f"**GPT-4o-mini vs. Perspective API toxicity correlation:** r = {corr:.3f}"))
+
+# Distribution of categorical ratings
+for col in ["gpt_valence", "gpt_stance", "gpt_emotionality", "gpt_sarcasm"]:
+    counts = df[col].value_counts().to_dict()
+    display(Markdown(f"**{col}:** {counts}"))
+```
+
+## Step 7: Preview Results
+
+```{python}
+#| label: final-distribution
+
+bin_edges = np.linspace(0, 1, N_BINS + 1)
+counts, _ = np.histogram(df["new_perspective_toxicity"], bins=bin_edges)
+display(Markdown("**Final toxicity distribution:**"))
+for i, c in enumerate(counts):
+    bar = "#" * c
+    print(f"  [{bin_edges[i]:.1f} - {bin_edges[i+1]:.1f}]: {c:3d} {bar}")
+```
+
+```{python}
+#| label: preview-table
+
+display_cols = ["text", "perspective_toxicity", "new_perspective_toxicity", "typo_applied"]
+show(df[display_cols], pageLength=10, columnDefs=[{"width": "55%", "targets": 0}])
+```
+
+## Step 8: Assemble & Save
+
+```{python}
+#| label: save
+
+# Re-bin on rescored toxicity and cap at TWEETS_PER_BIN per bin.
+# Oversampled upper-bin posts that drifted down are trimmed here so the
+# final corpus stays balanced rather than inflating the lower bins.
+df["final_bin"] = pd.cut(
+    df["new_perspective_toxicity"], bins=bin_edges, labels=False, include_lowest=True
+)
+df = (
+    df.groupby("final_bin", group_keys=False)
+      .apply(lambda g: g.sample(n=min(TWEETS_PER_BIN, len(g)), random_state=SEED))
+      .reset_index(drop=True)
+)
+final_counts, _ = np.histogram(df["new_perspective_toxicity"], bins=bin_edges)
+display(Markdown("**Final corpus after re-capping at TWEETS_PER_BIN per rescored bin:**"))
+for i, c in enumerate(final_counts):
+    bar = "#" * c
+    print(f"  [{bin_edges[i]:.1f} - {bin_edges[i+1]:.1f}]: {c:3d} {bar}")
+
+names = ["Emma", "Liam", "Sophia", "Noah", "Olivia", "Ethan", "Ava", "Lucas",
+         "Isabella", "Mason", "Mia", "Oliver", "Charlotte", "Elijah", "Amelia",
+         "James", "Harper", "Benjamin", "Evelyn", "Alexander"]
+
+n = len(df)
+
+# Sort by toxicity for sequence assignment
+df = df.sort_values("new_perspective_toxicity").reset_index(drop=True)
+
+# Random timestamps spread over the last few days
+base_time = pd.Timestamp.now()
+offsets   = sorted(np.random.randint(10000, 300000, size=n))
+timestamps = [base_time - pd.Timedelta(seconds=int(o)) for o in offsets]
+
+usernames = [random.choice(names) for _ in range(n)]
+
+output = pd.DataFrame({
+    "doc_id":           range(1, n + 1),
+    "datetime":         [t.strftime("%d.%m.%y %H:%M") for t in timestamps],
+    "text":             df["text"].values,
+    "media":            "",
+    "alt_text":         "",
+    "likes":            np.random.randint(0, 301, size=n),
+    "reposts":          np.random.randint(0, 101, size=n),
+    "replies":          np.random.randint(0, 201, size=n),
+    "username":         usernames,
+    "handle":           [u.lower() for u in usernames],
+    "user_description": "Perspective's Score: " + df["new_perspective_toxicity"].astype(str),
+    "user_image":       "https://www.nicepng.com/png/full/136-1366211_group-of-10-guys-login-user-icon-png.png",
+    "user_followers":   np.random.randint(0, 2001, size=n),
+    "sponsored":        0,
+    "target":           "",
+    "condition":        "A",
+    "sequence":         range(1, n + 1),
+    "commented_post":   0,
+    "source":           df["model"].values if "model" in df.columns else "grok-3",
+    "fixed_position":   np.nan,
+    "toxicity":         df["new_perspective_toxicity"].values,
+    # AI-based ratings
+    "gpt_toxicity":     df["gpt_toxicity"].values     if "gpt_toxicity"     in df.columns else np.nan,
+    "gpt_valence":      df["gpt_valence"].values       if "gpt_valence"       in df.columns else np.nan,
+    "gpt_stance":       df["gpt_stance"].values        if "gpt_stance"        in df.columns else np.nan,
+    "gpt_emotionality": df["gpt_emotionality"].values  if "gpt_emotionality"  in df.columns else np.nan,
+    "gpt_sarcasm":      df["gpt_sarcasm"].values       if "gpt_sarcasm"       in df.columns else np.nan,
+    # omni-moderation-latest scores
+    **{col: df[col].values if col in df.columns else np.nan
+       for col in df.columns if col.startswith("mod_")},
+})
+
+# Fixed-position sponsored post
+fixed_posts = pd.DataFrame([{
+    "doc_id":           9999,
+    "datetime":         pd.Timestamp.now().strftime("%d.%m.%y %H:%M"),
+    "text":             "M&M'S. It's More Fun Together.",
+    "media":            "ads/mms-ad.jpg",
+    "alt_text":         "",
+    "likes":            160,
+    "reposts":          23,
+    "replies":          95,
+    "username":         "M&M'S",
+    "handle":           "mmschocolate",
+    "user_description": "One for all & all for fun! Making chocolate for all funkind since 1941.",
+    "user_image":       "https://pbs.twimg.com/profile_images/1484725155821756420/ZeclBrZI_400x400.png",
+    "user_followers":   206630,
+    "sponsored":        1,
+    "target":           "https://www.mms.com/en-us",
+    "condition":        "A",
+    "sequence":         14,
+    "commented_post":   0,
+    "source":           "sponsored",
+    "fixed_position":   14,
+    "toxicity":         0,
+}])
+
+output = pd.concat([output, fixed_posts], ignore_index=True)
+
+OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+output.to_csv(OUTPUT_PATH, index=False)
+
+display(Markdown(f"**Saved {n} organic posts + 1 sponsored post to `{OUTPUT_PATH}`**"))
+display(Markdown(f"Distribution: {N_BINS} bins × {TWEETS_PER_BIN} tweets = {N_BINS * TWEETS_PER_BIN} target"))
+```

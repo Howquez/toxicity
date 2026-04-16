@@ -1,0 +1,89 @@
+{% extends "global/Page.html" %}
+{% load otree static %}
+
+{% block title %}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <div class="mb-4">
+        <p class="eyebrow">One more question</p>
+        <h2 style="font-size: 22px; font-weight: 700; color: #111118; margin: 0 0 8px;">How realistic did these posts feel?</h2>
+        <p style="color: #4a4a60; line-height: 1.6; margin: 0;">
+            Below are three posts you saw earlier.
+            For each one, please rate how <strong>realistic</strong> it feels,
+            that is, how much it reads like something a real person would actually post online.
+        </p>
+    </div>
+
+    <div id="realism-cards"></div>
+
+    <div class="d-flex justify-content-end mt-4">
+        <button class="btn btn-primary" id="btn-submit" onclick="submitRealism()" disabled>Continue →</button>
+    </div>
+
+</div>
+
+<script>
+const POSTS = js_vars.posts;
+let realism = {};
+
+function renderCards() {
+    const container = document.getElementById('realism-cards');
+    container.innerHTML = '';
+
+    POSTS.forEach((post, i) => {
+        const docId = String(post.doc_id);
+        const card = document.createElement('div');
+        card.className = 'card mb-3';
+        card.innerHTML = `
+            <div class="card-body">
+                <p style="font-size: 0.9rem; color: #a0a0b8; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px;">Post ${i + 1}</p>
+                <p style="font-size: 1rem; color: #111118; line-height: 1.6; margin-bottom: 18px;">${escapeHtml(post.text)}</p>
+                <div class="d-flex align-items-center gap-2">
+                    <span style="font-size: 0.75rem; color: #a0a0b8; white-space: nowrap;">Completely artificial (0)</span>
+                    <input type="range" class="form-range flex-grow-1"
+                           id="realism_${docId}"
+                           data-doc-id="${docId}"
+                           min="0" max="100" step="1"
+                           value="50"
+                           data-untouched="true">
+                    <span style="font-size: 0.75rem; color: #a0a0b8; white-space: nowrap;">Completely realistic (100)</span>
+                </div>
+                <div class="text-center mt-2">
+                    <span class="badge bg-secondary" id="rval_${docId}" style="min-width: 2.5rem; font-size: 0.85rem;">&mdash;</span>
+                </div>
+            </div>`;
+        container.appendChild(card);
+
+        card.querySelector('input[type=range]').addEventListener('input', function() {
+            this.removeAttribute('data-untouched');
+            realism[docId] = parseInt(this.value);
+            document.getElementById(`rval_${docId}`).textContent = this.value;
+            liveSend({realism: {[docId]: parseInt(this.value)}});
+            updateButton();
+        });
+    });
+}
+
+function updateButton() {
+    const allRated = POSTS.every(p => realism[String(p.doc_id)] !== undefined);
+    document.getElementById('btn-submit').disabled = !allRated;
+}
+
+function submitRealism() {
+    document.querySelector('form').submit();
+}
+
+function escapeHtml(text) {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+renderCards();
+</script>
+
+{% endblock %}

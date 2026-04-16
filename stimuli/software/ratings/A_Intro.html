@@ -1,0 +1,79 @@
+{% extends "global/Page.html" %}
+{% load otree static %}
+
+{% block title %}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <div class="mb-4">
+        <p class="eyebrow">Toxicity Rating Study</p>
+        <h1 style="font-size: 28px; font-weight: 700; color: #111118; margin: 0 0 6px;">Rating Social Media Posts</h1>
+        <p style="color: #8080a0; font-size: 15px; margin: 0;">ETH Zurich &mdash; Academic Research</p>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <p class="eyebrow">What you will do</p>
+            <p style="color: #4a4a60; line-height: 1.65; margin: 0;">
+                You will read <strong>38 short social media posts</strong> written by members of the public about a recently released film.
+                For each post, you will rate how <strong>toxic</strong> it is using a sliding scale from &minus;50 to +50.
+            </p>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <p class="eyebrow">What we mean by toxic</p>
+            <p style="color: #4a4a60; line-height: 1.65; margin: 0 0 0;">
+                A post is <strong>toxic</strong> if it contains <strong>language that a reasonable person would find attacking, devaluing, or harmful &mdash; or that disrupts civil, constructive discourse</strong>. Toxicity can be directed at the film, at the people who made it, or at other viewers. It does not matter whether you agree or disagree with the opinion expressed &mdash; only how the <em>language itself</em> comes across.
+            </p>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <p class="eyebrow">How to rate</p>
+            <p style="color: #4a4a60; margin: 0 0 14px;">Move the slider to any point between &minus;50 and +50:</p>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; align-items: baseline; gap: 12px;">
+                    <span style="font-size: 15px; font-weight: 700; color: #111118; min-width: 36px;">&minus;50</span>
+                    <span style="color: #4a4a60; font-size: 14px;">Not at all toxic: respectful and civil, even if strongly opinionated</span>
+                </div>
+                <div style="display: flex; align-items: baseline; gap: 12px;">
+                    <span style="font-size: 15px; font-weight: 700; color: #111118; min-width: 36px;">+50</span>
+                    <span style="color: #4a4a60; font-size: 14px;">Extremely toxic: severely abusive, hateful, or threatening</span>
+                </div>
+            </div>
+            <p style="color: #8080a0; font-size: 13px; margin: 14px 0 0;">
+                You will see this definition again at the top of each page. Please read each post carefully before rating. There is no time pressure.
+            </p>
+        </div>
+    </div>
+
+    <div class="card mb-3" style="border-left: 3px solid #a30d4e !important;">
+        <div class="card-body" style="padding: 14px 18px;">
+            <p style="color: #111118; font-weight: 600; margin: 0 0 4px;">Please complete the study in one sitting.</p>
+            <p style="color: #4a4a60; font-size: 0.9rem; margin: 0;">Do not refresh or close your browser during the task as your progress cannot be recovered.</p>
+        </div>
+    </div>
+
+    <div class="card mb-3" style="background: #111118 !important; border: none !important;">
+        <div class="card-body" style="padding: 14px 18px;">
+            <p style="color: #ffffff; font-weight: 600; margin: 0 0 4px;">Content warning</p>
+            <p style="color: rgba(255,255,255,0.7); font-size: 0.9rem; line-height: 1.6; margin: 0;">Some of the posts in this study contain toxic, offensive, or otherwise disturbing language. If you would prefer not to be exposed to such content, please return this study now.</p>
+        </div>
+    </div>
+
+    <p style="color: #a30d4e; font-size: 12px; margin-bottom: 20px;">
+        By continuing, you confirm that you are 18 years or older and agree to participate voluntarily.
+        Your anonymized responses will be used for academic research only.
+        Questions? Contact <a href="mailto:hauke.roggenkamp@mtec.ethz.ch" style="color: #6a6a80;">hauke.roggenkamp@mtec.ethz.ch</a>.
+    </p>
+
+    <div style="display: flex; justify-content: flex-end;">
+        {% next_button %}
+    </div>
+
+</div>
+{% endblock %}

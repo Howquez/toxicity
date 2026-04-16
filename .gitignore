@@ -19,6 +19,7 @@ _site/
 *_files/
 *.html
 !software/**/*.html
+!stimuli/software/**/*.html
 
 # Output data (optional - remove if you want to track generated data)
 stimuli/output/

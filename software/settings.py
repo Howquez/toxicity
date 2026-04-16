@@ -31,7 +31,6 @@ SESSION_CONFIG_DEFAULTS = dict(
     creatives_path = "DICE/static/creatives",
     num_creatives = 8,
     sort_by='datetime',
-    condition_col='',
     toxicity_threshold=0.6,
     search_term = "Fire and Ash",
     preloader_delay = 5000,   # milliseconds — loading screen duration

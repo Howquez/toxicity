@@ -2,7 +2,6 @@ from otree.api import *
 import pandas as pd
 import numpy as np
 import re
-import itertools
 import urllib.parse
 import os
 import json
@@ -23,14 +22,13 @@ class C(BaseConstants):
     ITEM_POST = "DICE/T_Item_Post.html"
 
 class Subsession(BaseSubsession):
-    feed_conditions = models.StringField(doc='indicates the feed condition a player is randomly assigned to')
+    pass
 
 class Group(BaseGroup):
     pass
 
 
 class Player(BasePlayer):
-    feed_condition = models.StringField(doc='indicates the feed condition a player is randomly assigned to')
     feed_toxicity = models.FloatField(doc='proportion of toxic posts (toxicity >= threshold) in the feed shown to this player', blank=True)
     sequence = models.StringField(doc='prints the sequence of posts based on doc_id')
 
@@ -56,12 +54,6 @@ def creating_session(subsession):
     # Load and preprocess data once but shuffle and assign for each player
     df = read_feed(path=subsession.session.config['data_path'], delim=subsession.session.config['delimiter'])
     processed_posts = preprocessing(df, subsession.session.config)
-
-    # Check if the file contains any conditions and assign groups to it
-    condition = subsession.session.config['condition_col']
-    if condition in processed_posts.columns:
-        feed_conditions = itertools.cycle(processed_posts[condition].unique())
-        subsession.feed_conditions = ', '.join(processed_posts[condition].unique())
 
     players = subsession.get_players()
     feed_size = subsession.session.config.get('feed_size', 0)
@@ -100,15 +92,6 @@ def creating_session(subsession):
     for i, player in enumerate(players):
         # Deep copy the DataFrame to ensure each player gets a unique shuffled version
         posts = processed_posts.copy()
-
-        # Assign a condition to the player if conditions are present
-        if condition in posts.columns:
-            player.feed_condition = next(feed_conditions)
-            condition_mask = posts[condition] == player.feed_condition
-            # Always keep fixed-position posts regardless of their condition value
-            if 'fixed_position' in posts.columns:
-                condition_mask = condition_mask | posts['fixed_position'].notna()
-            posts = posts[condition_mask]
 
         # Sample a subset of posts by toxic proportion if configured
         if toxicity_targets is not None:
@@ -297,12 +280,6 @@ def preprocessing(df, config):
         threshold = config.get('toxicity_threshold', 0.6)
         df['is_toxic'] = df['toxicity'] >= threshold
 
-    # Check if 'condition_col' is set and not empty, and if it's an existing column in df
-    if ('condition_col' in config and
-            config['condition_col'] and
-            config['condition_col'] in df.columns):
-        df.rename(columns={config['condition_col']: 'condition'}, inplace=True)
-
     return df
 
 
@@ -315,9 +292,6 @@ def create_redirect(player):
     if completion_code is not None:
         params['cc'] = completion_code
 
-    if player.feed_condition is not None:
-        params['condition'] = player.feed_condition
-
     return player.session.config['survey_link'] + '?' + urllib.parse.urlencode(params)
 
 
@@ -328,8 +302,7 @@ class A_Intro(Page):
     @staticmethod
     def before_next_page(player, timeout_happened):
         # update sequence
-        df = player.participant.tweets
-        posts = df[df['condition'] == player.feed_condition]
+        posts = player.participant.tweets
         player.sequence = ', '.join(map(str, posts['doc_id'].tolist()))
 
 class B_Briefing(Page):
@@ -353,9 +326,6 @@ class C_Feed(Page):
         if 'fixed_position' in posts_df.columns and posts_df['fixed_position'].notna().any():
             fixed = posts_df[posts_df['fixed_position'].notna()].copy()
             regular = posts_df[posts_df['fixed_position'].isna()].copy()
-
-            # Fixed-position posts must pass the condition check in the template
-            fixed['condition'] = player.feed_condition
 
             # Insert fixed posts at their specified 1-indexed positions
             posts_list = regular.to_dict('records')
@@ -445,7 +415,7 @@ def _parse_json_field(value):
 def custom_export(players):
     yield [
         'session_code', 'participant_code', 'participant_label',
-        'condition', 'feed_toxicity', 'lottery_signup', 'time_on_feed',
+        'feed_toxicity', 'lottery_signup', 'time_on_feed',
         'device_type', 'is_touch_device', 'screen_resolution', 'time_started', 'completed_feed',
         'doc_id', 'displayed_sequence',
         'dwell_time', 'focal_dwell_time', 'liked', 'reply', 'has_reply', 'post_height_px', 'creative_image',
@@ -506,7 +476,6 @@ def custom_export(players):
                 p.session.code,
                 p.participant.code,
                 p.participant.label,
-                p.feed_condition,
                 p.feed_toxicity,
                 p.lottery_signup,
                 p.time_on_feed,

@@ -1,0 +1,92 @@
+{% extends "global/Page.html" %}
+{% load otree static %}
+
+{% block title %}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <div class="mb-4">
+        <p class="eyebrow">Before you begin</p>
+        <h2 style="font-size: 22px; font-weight: 700; color: #111118; margin: 0 0 8px;">Three examples to calibrate your judgement</h2>
+        <p style="color: #4a4a60; line-height: 1.6; margin: 0;">
+            Below are three posts with explanations. They are not from the actual task.
+            Read them to get a feel for the scale before you start rating.
+        </p>
+    </div>
+
+    <!-- Example 1: civil but opinionated -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <p class="eyebrow" style="margin: 0;">Example 1</p>
+                <span style="font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+                             background: #e8f5e9; color: #2e7d32; border-radius: 20px; padding: 3px 12px;">
+                    Civil / not toxic
+                </span>
+            </div>
+            <p style="font-size: 1rem; color: #111118; line-height: 1.6; margin-bottom: 16px; padding: 14px 16px; background: #f9f9fb; border-radius: 8px;">
+                "visually its stunning as always tbh, but the screenplay felt kinda rushed and the new characters never really got enough develpment. left the cinema entertained but not moved. worth seeing once, prolly not twice"
+            </p>
+            <p style="color: #4a4a60; font-size: 0.9rem; line-height: 1.6; margin: 0;">
+                <strong>Why not toxic:</strong> Openly critical, but the language is measured and the criticism stays focused on the work itself. Informal register, a typo, and strong opinions do not make a post toxic.
+            </p>
+        </div>
+    </div>
+
+    <!-- Example 2: borderline -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <p class="eyebrow" style="margin: 0;">Example 2</p>
+                <span style="font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+                             background: #fff8e1; color: #f57f17; border-radius: 20px; padding: 3px 12px;">
+                    Borderline
+                </span>
+            </div>
+            <p style="font-size: 1rem; color: #111118; line-height: 1.6; margin-bottom: 16px; padding: 14px 16px; background: #f9f9fb; border-radius: 8px;">
+                "Looks stunning, I&rsquo;ll give it that. But the story is honestly just dumb. I don&rsquo;t get the hype. either people&rsquo;s standards have dropped or they&rsquo;re just easily impressed by pretty visuals."
+            </p>
+            <p style="color: #4a4a60; font-size: 0.9rem; line-height: 1.6; margin: 0;">
+                <strong>Why borderline:</strong> The film criticism is mild, but the closing remark implicitly questions other viewers&rsquo; taste and judgement (&ldquo;easily impressed&rdquo;). It is not outright hostile, but it is a step beyond purely discussing the film. Posts like this sit near the centre of the scale.
+            </p>
+        </div>
+    </div>
+
+    <!-- Example 3: clearly toxic -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <p class="eyebrow" style="margin: 0;">Example 3</p>
+                <span style="font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+                             background: #fce4ec; color: #c62828; border-radius: 20px; padding: 3px 12px;">
+                    Clearly toxic
+                </span>
+            </div>
+            <p style="font-size: 1rem; color: #111118; line-height: 1.6; margin-bottom: 16px; padding: 14px 16px; background: #f9f9fb; border-radius: 8px;">
+                "The lead actress can&rsquo;t act for sh*t &mdash; she&rsquo;s just eye candy who got the role because of how she looks. Pathetic, lazy casting. What an embarrassment of a film."
+            </p>
+            <p style="color: #4a4a60; font-size: 0.9rem; line-height: 1.6; margin: 0;">
+                <strong>Why toxic:</strong> No other viewers are mentioned. The toxicity comes from profanity, sexist framing of the actress as decoration rather than talent (&ldquo;eye candy&rdquo;), and personal devaluation (&ldquo;pathetic&rdquo;, &ldquo;embarrassment&rdquo;). Toxic posts can centre on sexism, profanity, personal attacks on cast or crew, or a mix &mdash; directed at anyone, not just other viewers.
+            </p>
+        </div>
+    </div>
+
+    <!-- Broad reminder -->
+    <div class="card mb-4" style="border-left: 3px solid #a30d4e !important;">
+        <div class="card-body" style="padding: 14px 18px;">
+            <p style="color: #111118; font-weight: 600; margin: 0 0 4px;">Toxicity takes many forms.</p>
+            <p style="color: #4a4a60; font-size: 0.9rem; line-height: 1.6; margin: 0;">
+                A post does not necessarily have to attack other viewers to be toxic.
+                Sexist or dehumanising language toward actors, hateful or discriminatory framing, and gratuitous profanity all count &mdash; as does any combination of these.
+                Focus on how the language itself comes across.
+            </p>
+        </div>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end;">
+        {% next_button %}
+    </div>
+
+</div>
+{% endblock %}
