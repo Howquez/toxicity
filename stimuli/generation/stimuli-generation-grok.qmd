@@ -1,0 +1,398 @@
+---
+title: "Stimuli Generation (Grok API)"
+author: "Hauke Roggenkamp"
+format:
+  html:
+    embed-resources: true
+execute:
+  echo: false
+---
+
+## Overview
+
+This document generates tweet stimuli about the latest Avatar Movie varying in civility/toxicity levels for research purposes. Uses the Grok API (xAI) for generation and Perspective API for toxicity scoring.
+
+## Setup
+
+**Note:** You may have to run `reticulate::py_install("missing-package's-name")` in R.
+
+```{python}
+#| label: setup
+
+import os
+import json
+import pandas as pd
+from pathlib import Path
+from dotenv import load_dotenv
+from openai import OpenAI
+from tqdm import tqdm
+import random
+import requests
+import time
+from IPython.display import display, Markdown, HTML
+from itables import show
+
+# Load API keys from .env file
+load_dotenv(Path(__file__).parent.parent.parent / ".env" if "__file__" in dir() else "../../.env")
+
+# Model configuration
+GROK_MODEL = "grok-3"
+
+# Generation parameters
+N_TWEETS_PER_LEVEL = 30  # 4 levels × N = total tweets
+SEED = 20260502
+```
+
+```{python}
+#| label: api-setup
+
+# Grok uses OpenAI-compatible API
+client = OpenAI(
+    api_key=os.environ.get("XAI_API_KEY"),
+    base_url="https://api.x.ai/v1"
+)
+```
+
+## Toxicity Levels
+
+We define 4 levels of civility, from civil to highly toxic:
+
+```{python}
+#| label: toxicity-levels
+
+TOXICITY_LEVELS = {
+    1: {
+        "name": "civil",
+        "description": "Respectful discourse that focuses on ideas, not people. May express strong opinions but remains constructive. LANGUAGE: Use measured, respectful vocabulary. Avoid harsh or insulting words — no name-calling, no pejoratives, no profanity."
+    },
+    2: {
+        "name": "mildly_toxic",
+        "description": "Covertly toxic: Uses sarcasm, passive aggression, or dismissive language that subtly demeans. Implies others are uninformed or naive. Intentionally breeds unproductive conflict. LANGUAGE: Sarcastic or dismissive, but without overt insults or profanity."
+    },
+    3: {
+        "name": "toxic",
+        "description": "Overtly toxic: Direct personal attacks, insults, or derogatory language targeting individuals or groups. Deliberately inflammatory and disrespectful. LANGUAGE: Harsh, insulting vocabulary including profanity and name-calling."
+    },
+    4: {
+        "name": "highly_toxic",
+        "description": "Extremely toxic: Dehumanizing, hateful, or threatening content. May include identity-based attacks, slurs, harassment, or content designed to inflict maximum harm. LANGUAGE: Extreme, dehumanizing vocabulary — slurs, threats, the harshest terms available."
+    }
+}
+
+# Valence dimension (orthogonal to toxicity)
+VALENCES = [
+    ("positive", "Express a POSITIVE opinion about the movie (enjoyed it, found merit, recommends it). If toxic, direct the hostility outward — at the discourse (critics, review-bombing, manufactured negativity), at the director or studio, at specific actors, or at the broader cultural conversation. Do NOT attack viewers who disliked the film."),
+    ("negative", "Express a NEGATIVE opinion about the movie (criticism, disappointment, dislike). If toxic, direct toxicity at people who LIKE the movie or at the movie/filmmakers."),
+]
+
+# Movies known to trigger diverse reactions
+TOPICS = [
+    # "Joker: Folie à Deux (2024)",
+    # "Barbie (2023)",
+    # "The Marvels (2023)",
+    # "The Rise of Skywalker (2019)",
+    "Avatar: Fire and Ash (2025)",
+    # "Mission: Impossible - The Final Reckoning (2025)",
+]
+
+# Variation parameters for linguistic diversity
+LENGTHS = [
+    ("very short", "under 60 characters, punchy"),
+    ("short", "60-120 characters"),
+    ("medium", "120-200 characters"),
+    ("long", "200-280 characters, detailed"),
+]
+
+STYLES = [
+    ("casual",         "relaxed, everyday language, maybe some slang"),
+    ("formal",         "proper grammar, more articulate"),
+    ("emphatic",       "uses caps, exclamation marks, strong emphasis"),
+    ("abbreviated",    "uses common abbreviations like 'tbh', 'ngl', 'imo', 'lol'"),
+    ("deadpan",        "dry, understated, matter-of-fact"),
+    ("meme-register",  "fragmented, present-tense, emotionally compressed — as if narrating a scene that just happened"),
+]
+
+FOCUSES = [
+    "the plot or story",
+    "a specific character (Varang, Neytiri, Lo'ak, Jake Sully, Kiri, Spider, or Tonowari)",
+    "the themes or message",
+    "personal reaction after watching",
+    "comparison to Avatar 1 or James Cameron's earlier films (Titanic, The Way of Water)",
+    "the box office performance or Disney's franchise strategy",
+    "the film's cultural impact or fan discourse",
+    "specific scenes or action sequences",
+    "the visual effects, world-building, or IMAX experience",
+]
+
+FORMATS = [
+    ("statement",          "a direct opinion or observation"),
+    ("rhetorical question","poses a question to make a point"),
+    ("reaction",           "responds as if replying to someone who liked/disliked it"),
+    ("hot take",           "a bold, possibly contrarian opinion"),
+    ("listicle",           "lists specific moments, scenes, or reasons (e.g. '3 things that worked', 'every scene where Varang...')"),
+    ("fan theory",         "speculates about a character's arc, plot implications, or what Avatar 4 might do"),
+]
+
+# Factual context injected into the system prompt for grounding
+CONTEXT = (
+    "Key facts about Avatar: Fire and Ash (2025):\n"
+    "- New villain: Varang (Oona Chaplin), leader of the Ash People, a fire-biome Na'vi clan\n"
+    "- Quaritch (Stephen Lang) returns for a third time; Neteyam died in The Way of Water\n"
+    "- Lo'ak (Britain Dalton) narrates; Spider (Jack Champion) is central but divisive\n"
+    "- Cast: Jake Sully (Sam Worthington), Neytiri (Zoe Saldaña), Kiri (Sigourney Weaver), Tonowari (Cliff Curtis)\n"
+    "- Final gross: $1.485B worldwide; Avatar 1 = $2.9B (all-time #1), The Way of Water = $2.3B\n"
+    "- Cameron (71) has Avatar 4 partially shot; Disney reportedly in talks to make future sequels cheaper\n"
+    "- Critical reception: visuals universally praised; story criticised as recycled"
+)
+
+# Recurring fan debate angles; one is sampled per post for topical grounding
+DISCOURSE_HOOKS = [
+    "rewatch value — Cameron's films are said to improve on second viewing",
+    "Varang being underexplored despite being the most interesting new villain",
+    "Spider as the controversial central character fans love to hate",
+    "Quaritch returning for a third time and whether the franchise has run out of villains",
+    "Disney's reported plan to make Avatar 4 and 5 cheaper and shorter",
+    "whether $1.485B is a success or a disappointment given the franchise's history",
+    "the Neytiri and Jake dynamic as the emotional core of the franchise",
+    "Lo'ak's arc and whether he earns his role as narrator",
+]
+```
+
+## Generation Functions
+
+```{python}
+#| label: generation-functions
+
+random.seed(SEED)
+
+def build_prompt(toxicity_level: int, topic: str, length: tuple, style: tuple, focus: str, format: tuple, valence: tuple, hook: str) -> dict:
+    """Build the prompt for generating a tweet at a specific toxicity level with variations."""
+    level_info = TOXICITY_LEVELS[toxicity_level]
+
+    prompt = (
+        f"Generate a realistic tweet about the movie {topic}.\n"
+        f"VALENCE: {valence[0].upper()} — {valence[1]}\n"
+        f"LENGTH: {length[0]} ({length[1]}).\n"
+        f"STYLE: {style[0]} — {style[1]}.\n"
+        f"FOCUS: {focus}.\n"
+        f"FORMAT: {format[0]} — {format[1]}.\n"
+        f"CIVILITY LEVEL: {level_info['name'].upper()} — {level_info['description']}\n"
+        f"OPTIONAL ANGLE: {hook} — incorporate this if it fits naturally.\n\n"
+        "RULES: Match both the valence AND civility level exactly. No hashtags or @mentions. "
+        "No em dashes (--). Output ONLY the tweet text, nothing else."
+    )
+
+    variations = {
+        "length":  length[0],
+        "style":   style[0],
+        "focus":   focus,
+        "format":  format[0],
+        "valence": valence[0],
+        "hook":    hook,
+    }
+
+    return {"prompt": prompt, "variations": variations}
+
+
+def get_perspective_score(text: str) -> dict:
+    """Get toxicity scores from Perspective API."""
+    api_key = os.environ.get("PERSPECTIVE_API_KEY")
+    url = f"https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze?key={api_key}"
+
+    payload = {
+        "comment": {"text": text},
+        "languages": ["en"],
+        "requestedAttributes": {
+            "TOXICITY": {},
+            "SEVERE_TOXICITY": {},
+            "INSULT": {},
+            "PROFANITY": {},
+            "THREAT": {}
+        }
+    }
+
+    try:
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+        scores = response.json()["attributeScores"]
+        return {
+            "toxicity": scores["TOXICITY"]["summaryScore"]["value"],
+            "severe_toxicity": scores["SEVERE_TOXICITY"]["summaryScore"]["value"],
+            "insult": scores["INSULT"]["summaryScore"]["value"],
+            "profanity": scores["PROFANITY"]["summaryScore"]["value"],
+            "threat": scores["THREAT"]["summaryScore"]["value"]
+        }
+    except Exception as e:
+        print(f"Perspective API error: {e}")
+        return {
+            "toxicity": None,
+            "severe_toxicity": None,
+            "insult": None,
+            "profanity": None,
+            "threat": None
+        }
+
+
+def generate_tweet(toxicity_level: int, topic: str, valence: tuple = None) -> dict:
+    """Generate a single tweet using Grok API with random variations."""
+    length  = random.choice(LENGTHS)
+    style   = random.choice(STYLES)
+    focus   = random.choice(FOCUSES)
+    format  = random.choice(FORMATS)
+    hook    = random.choice(DISCOURSE_HOOKS)
+    if valence is None:
+        valence = random.choice(VALENCES)
+
+    prompt_data = build_prompt(toxicity_level, topic, length, style, focus, format, valence, hook)
+
+    response = client.chat.completions.create(
+        model=GROK_MODEL,
+        messages=[
+            {"role": "system", "content": (
+                "You are helping generate realistic tweet stimuli for academic research on online discourse and civility. "
+                "Follow the style, length, and format instructions precisely to create diverse, natural-sounding tweets.\n\n"
+                + CONTEXT
+            )},
+            {"role": "user", "content": prompt_data["prompt"]}
+        ],
+        max_tokens=150,
+        temperature=1.0,
+    )
+
+    return {
+        "text": response.choices[0].message.content.strip().strip('"'),
+        "variations": prompt_data["variations"]
+    }
+```
+
+## Generate Tweets
+
+```{python}
+#| label: generate-tweets
+#| output: false
+
+tweets = []
+
+for level in TOXICITY_LEVELS.keys():
+    for i in tqdm(range(N_TWEETS_PER_LEVEL), desc=f"Level {level}"):
+        topic = random.choice(TOPICS)
+
+        try:
+            result = generate_tweet(level, topic)
+            text = result["text"]
+            variations = result["variations"]
+
+            # Get Perspective API toxicity scores
+            scores = get_perspective_score(text)
+            time.sleep(0.1)  # Rate limit buffer
+
+            tweets.append({
+                "id": len(tweets) + 1,
+                "toxicity_level": level,
+                "toxicity_name": TOXICITY_LEVELS[level]["name"],
+                "valence": variations["valence"],
+                "topic": topic,
+                "text": text,
+                "char_count": len(text),
+                "length_type": variations["length"],
+                "style": variations["style"],
+                "focus": variations["focus"],
+                "format": variations["format"],
+                "backend": "grok",
+                "model": GROK_MODEL,
+                "perspective_toxicity": scores["toxicity"],
+                "perspective_severe_toxicity": scores["severe_toxicity"],
+                "perspective_insult": scores["insult"],
+                "perspective_profanity": scores["profanity"],
+                "perspective_threat": scores["threat"]
+            })
+        except Exception as e:
+            print(f"Error generating tweet: {e}")
+            continue
+
+df = pd.DataFrame(tweets)
+```
+
+## Preview Results
+
+### Summary Statistics
+
+```{python}
+#| label: summary
+#| eval: false
+
+display(Markdown(f"**Generated {len(df)} tweets** across {len(TOXICITY_LEVELS)} toxicity levels"))
+
+# Summary table
+summary = df.groupby('toxicity_name').agg({
+    'perspective_toxicity': ['mean', 'std'],
+    'char_count': ['mean', 'min', 'max'],
+    'id': 'count'
+}).round(3)
+summary.columns = ['Toxicity (mean)', 'Toxicity (std)', 'Length (mean)', 'Length (min)', 'Length (max)', 'Count']
+summary
+```
+
+### Sample Tweets by Level
+
+```{python}
+#| label: preview-samples
+
+for level in TOXICITY_LEVELS.keys():
+    level_name = TOXICITY_LEVELS[level]['name']
+    display(Markdown(f"#### Level {level}: {level_name.replace('_', ' ').title()}"))
+
+    sample = df[df['toxicity_level'] == level].head(3)
+    for _, row in sample.iterrows():
+        tox_score = f"{row['perspective_toxicity']:.2f}" if row['perspective_toxicity'] else "N/A"
+        html = f"""
+        <div style="border-left: 3px solid {'#e74c3c' if level >= 3 else '#f39c12' if level == 2 else '#27ae60'};
+                    padding: 10px; margin: 10px 0; background: #f9f9f9;">
+            <small><b>{row['topic']}</b> | {row['style']}, {row['format']} | {row['char_count']} chars | toxicity: {tox_score}</small>
+            <p style="margin: 5px 0 0 0;">{row['text']}</p>
+        </div>
+        """
+        display(HTML(html))
+```
+
+### Full Dataset (Interactive)
+
+```{python}
+#| label: preview-table
+
+# Select columns for display
+display_cols = ['id', 'toxicity_name', 'valence', 'topic', 'text', 'char_count', 'style', 'format', 'perspective_toxicity']
+show(df[display_cols], pageLength=10, columnDefs=[{"width": "40%", "targets": 3}])
+```
+
+## Save Output
+
+```{python}
+#| label: save
+
+ts = time.time()
+
+output_dir = Path("output")
+output_dir.mkdir(exist_ok=True)
+
+# Save as CSV
+csv_path = output_dir / f"tweets_grok_{ts}.csv"
+df.to_csv(csv_path, index=False)
+
+# Save as JSON (with metadata)
+json_path = output_dir / f"tweets_grok_{ts}.json"
+output = {
+    "metadata": {
+        "backend": "grok",
+        "model": GROK_MODEL,
+        "n_tweets": len(df),
+        "seed": SEED,
+        "toxicity_levels": TOXICITY_LEVELS
+    },
+    "tweets": df.to_dict(orient="records")
+}
+with open(json_path, "w") as f:
+    json.dump(output, f, indent=2)
+
+display(Markdown(f"**Saved to:**\n- `{csv_path}`\n- `{json_path}`"))
+```

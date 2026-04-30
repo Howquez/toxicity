@@ -1,0 +1,253 @@
+---
+title: "Stimuli Evaluation"
+format:
+  html:
+    embed-resources: true
+    echo: false
+    warning: false
+---
+
+We ran a Prolific study and asked participants to rate the toxicity of 36 tweets (together with two attention checks). Out of a random sample of 100 tweets (see `validation-corpus.qmd`), each of the 40 participants drew 36 random tweets and rated their toxicity on a scale ranging from 0 (not toxic at all) to 100 (extremely toxic).
+
+This document evaluates to which degree the human ratings are consistent (in itself) and with both the Perspective API score and the GPT-4o-mini score.
+
+
+```{r packages_CRAN}
+#| warning: false
+# use rix at some point: https://github.com/ropensci/rix
+
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+
+if (!requireNamespace("groundhog", quietly = TRUE)) {
+  install.packages("groundhog")
+}
+
+pkgs <- c("data.table", "ggplot2", "patchwork", "stringr", "MOTE")
+
+groundhog::groundhog.library(pkg = pkgs,
+                             date = "2026-01-01") # R-4.4.1
+
+rm(pkgs)
+```
+
+```{r set-seed}
+set.seed(230691)
+```
+
+```{r constants}
+HUMAN_THRESHOLD <- 0.6  # ratings above this (0-1 scale) count as toxic
+```
+
+```{r read_data}
+raw <- fread(file = "../../data/raw/ratings_2026-04-22.csv")[nchar(prolific_pid) > 0]
+time_spent <- fread(file = "../../data/raw/PageTimes-2026-04-22.csv")
+```
+
+```{r helpers}
+
+a <- function(val, d = 3) MOTE::apa(val, decimals = d, leading = FALSE)
+
+fmt_r <- function(x) {
+  sprintf("r = %s, 95%% CI [%s, %s], t(%d) = %s, p %s",
+          a(x$estimate),
+          a(x$conf.int[1]),
+          a(x$conf.int[2]),
+          x$parameter,
+          a(x$statistic, d = 2),
+          ifelse(x$p.value < .001,
+                 "< .001",
+                 paste("=", a(x$p.value))))
+}
+```
+
+```{r design}
+c_primary <- "#a30d4e"
+
+theme_paper <- theme_minimal(base_size = 11) +
+  theme(
+    panel.grid.minor  = element_blank(),
+    panel.grid.major  = element_line(colour = "grey92"),
+    axis.title        = element_text(size = 10),
+    plot.title        = element_text(face = "bold", size = 11),
+    plot.subtitle     = element_text(colour = "#6a6a80", size = 9)
+  )
+```
+
+## Exclusions and Data Preparation
+
+```{r exclusions}
+# Remove participants who failed attention checks
+n_raw <- uniqueN(raw$participant_code)
+raters <- raw[failed_attention == FALSE]
+n_after <- uniqueN(raters$participant_code)
+
+# Remove attention check posts and unrated rows
+raters <- raters[!grepl("^attn_", doc_id)]
+raters <- raters[!is.na(human_rating)]
+```
+
+## Aggregate Human Ratings
+
+```{r aggregate}
+tmp <- raters[,
+              .(human_mean = mean(human_rating / 100),
+                human_sd   = sd(human_rating / 100),
+                n_raters   = .N),
+              keyby = doc_id]
+
+# Perspective and GPT scores are constant within doc_id; take first value
+scores <- raters[,
+                 .(perspective_toxicity = first(perspective_toxicity),
+                   prop_human_toxic = mean(human_rating / 100 > HUMAN_THRESHOLD),
+                   gpt_toxicity         = first(gpt_toxicity)),
+                 keyby = doc_id]
+
+agg <- merge(x = tmp, y = scores, by = "doc_id")
+
+rm(tmp)
+```
+
+## Convergent Validity
+
+```{r convergent-validity}
+# Pearson r: human mean vs Perspective API
+r_persp <- cor.test(agg$human_mean, agg$perspective_toxicity, method = "pearson")
+
+# Pearson r: human mean vs GPT-4o-mini
+r_gpt <- cor.test(agg$human_mean, agg$gpt_toxicity, method = "pearson")
+```
+
+Correlation between human averages and the Perspective API's score: `r fmt_r(r_persp)`.
+
+Correlation between human averages and the GPT-4o-mini score: `r fmt_r(r_gpt)`.
+
+
+```{r fig-convergent}
+#| fig-width: 9
+#| fig-height: 4.5
+
+label_persp <- sprintf("r = %s [%s, %s]",
+                       a(r_persp$estimate),
+                       a(r_persp$conf.int[1]),
+                       a(r_persp$conf.int[2]))
+
+label_gpt <- sprintf("r = %s [%s, %s]",
+                       a(r_gpt$estimate),
+                       a(r_gpt$conf.int[1]),
+                       a(r_gpt$conf.int[2]))
+
+p1 <- ggplot(data = agg,
+             mapping = aes(x = perspective_toxicity, y = human_mean)) +
+  geom_point(alpha = 0.55, size = 2) +
+  geom_smooth(method = "lm", se = TRUE, formula = "y ~ x",
+              colour = c_primary, fill = c_primary, alpha = 0.12) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "#a0a0b8", linewidth = 0.4) +
+  annotate("text", x = 0.05, y = 0.95, label = label_persp,
+           hjust = 0, size = 3.2, colour = c_primary) +
+  scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, .2)) +
+  scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, .2)) +
+  labs(title = "Human vs Perspective API",
+       x = "Perspective toxicity score", y = "Mean human rating (0-1)") +
+  theme_paper
+
+p2 <- ggplot(data = agg,
+             mapping = aes(x = gpt_toxicity, y = human_mean)) +
+  geom_point(alpha = 0.55, size = 2) +
+  geom_smooth(method = "lm", se = TRUE, formula = "y ~ x",
+              colour = c_primary, fill = c_primary, alpha = 0.12) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "#a0a0b8", linewidth = 0.4) +
+  annotate("text", x = 0.05, y = 0.95, label = label_gpt,
+           hjust = 0, size = 3.2, colour = c_primary) +
+  scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, .2)) +
+  scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, .2)) +
+  labs(title = "Human vs GPT-4o-mini",
+       x = "GPT-4o-mini toxicity score", y = "Mean human rating (0-1)") +
+  theme_paper
+
+p1 + p2
+```
+
+## Perspective Score as Proportion Toxic
+
+The Perspective API score is designed to approximate the share of people who would consider a post toxic. We operationalise the equivalent from our human ratings as the proportion of raters who assigned a score above 60 (mirroring our Perspectives API threshold). Both metrics are then on the same "share of people finding the post toxic" scale and can be compared directly.
+
+```{r prop-toxic}
+r_prop <- cor.test(agg$prop_human_toxic, agg$perspective_toxicity, method = "pearson")
+```
+
+Correlation between human proportions exceeding the threshold and the Perspective API's score: `r fmt_r(r_prop)`.
+
+
+```{r fig-prop-toxic}
+#| fig-width: 5.5
+#| fig-height: 4.5
+
+label_prop <- sprintf("r = %s [%s, %s]",
+                      a(r_prop$estimate),
+                      a(r_prop$conf.int[1]),
+                      a(r_prop$conf.int[2]))
+
+ggplot(data = agg,
+       mapping = aes(x = perspective_toxicity, y = prop_human_toxic)) +
+  geom_point(alpha = 0.55, size = 2) +
+  geom_smooth(method = "lm", se = TRUE, formula = "y ~ x", 
+              colour = c_primary, fill = c_primary, alpha = 0.12) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "#a0a0b8", linewidth = 0.4) +
+  annotate("text", x = 0.05, y = 0.97, label = label_prop,
+           hjust = 0, size = 3.2, colour = c_primary) +
+  annotate("text", x = 0.72, y = 0.65, label = "identity line",
+           hjust = 0, size = 2.8, colour = "#a0a0b8", angle = 38) +
+  scale_x_continuous(breaks = seq(0, 1, .2),
+                     labels = function(x) paste0(x * 10, "/10")) +
+  scale_y_continuous(breaks = seq(0, 1, .2),
+                     labels = scales::percent_format(accuracy = 1)) +
+  labs(title = "Perspective score vs share of raters finding post toxic",
+       x = "Perspective score (out of 10 people)",
+       y = "Share of raters rating > 0.6") +
+  theme_paper
+```
+
+## Rating Distribution
+
+```{r fig-distribution}
+#| fig-width: 7
+#| fig-height: 3.5
+
+ggplot(agg, aes(x = human_mean)) +
+  geom_histogram(binwidth = 0.05, fill = "#111118", colour = "white", linewidth = 0.3) +
+  scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, .2)) +
+  labs(title = "Distribution of mean human toxicity ratings",
+       x = "Mean human rating (0-1)", y = "Number of posts") +
+  theme_paper
+```
+
+## Ratings per Post
+
+```{r fig-ratings-per-post}
+#| fig-width: 9
+#| fig-height: 3.5
+
+agg_sorted <- agg[order(n_raters)]
+agg_sorted[, rank := .I]
+
+ggplot(agg_sorted, aes(x = rank, y = n_raters)) +
+  geom_col(fill = "#111118", width = 0.8) +
+  geom_hline(yintercept = 10, linetype = "dashed", colour = c_primary, linewidth = 0.5) +
+  annotate("text", x = 1, y = 10.5, label = "minimum threshold (10)",
+           hjust = 0, size = 3, colour = c_primary) +
+  scale_y_continuous(breaks = seq(0, max(agg_sorted$n_raters) + 2, by = 2)) +
+  labs(title = "Number of ratings per post (sorted ascending)",
+       x = "Post rank (1 = fewest ratings)", y = "Number of ratings") +
+  theme_paper
+
+cat("Posts below 10 ratings:", agg_sorted[n_raters < 10, .N], "\n")
+cat("Posts below  8 ratings:", agg_sorted[n_raters <  8, .N], "\n")
+cat("Range:", min(agg_sorted$n_raters), "to", max(agg_sorted$n_raters), "\n")
+```
+
+# Attention Checks
+
+```{r}
+View(raw[failed_attention == TRUE, ])
+```
+

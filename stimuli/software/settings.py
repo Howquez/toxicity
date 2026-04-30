@@ -7,7 +7,6 @@ SESSION_CONFIGS = [
         app_sequence=['ratings'],
         num_demo_participants=3,
         seed=230691,
-        completion_code='',   # set before launching on Prolific
     ),
 ]
 
@@ -24,8 +23,8 @@ SESSION_CONFIG_DEFAULTS = dict(
     doc="",
 )
 
-PARTICIPANT_FIELDS = []
-SESSION_FIELDS = []
+PARTICIPANT_FIELDS = ["finished"]
+SESSION_FIELDS = ["prolific_completion_url"]
 
 LANGUAGE_CODE = 'en'
 REAL_WORLD_CURRENCY_CODE = 'GBP'

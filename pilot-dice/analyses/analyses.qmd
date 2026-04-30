@@ -445,7 +445,7 @@ ggplot(data = part,
 #|   - "Two Line Plot ggplot"
 
 # H2a: Ad dwell time (log-transformed for skew)
-part[, log_ad_dwell := log1p(ad_dwell_time)]
+part[, log_ad_dwell := log(ad_dwell_time)]
 tl_adt <- twolines(log_ad_dwell ~ experienced_toxicity, data = as.data.frame(part), graph = 1)
 
 ggplot(data = part, 

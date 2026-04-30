@@ -38,9 +38,9 @@ class C(BaseConstants):
         "is_attn": True,
         "attn_type": "toxic",
     }
-    # Attention check thresholds (scale: -50 to +50)
-    ATTN_CIVIL_MAX = -10  # exclude if civil check rated above this
-    ATTN_TOXIC_MIN = 10   # exclude if toxic check rated below this
+    # Attention check thresholds (scale: 0 to 100)
+    ATTN_CIVIL_MAX = 40   # exclude if civil check rated above this
+    ATTN_TOXIC_MIN = 60   # exclude if toxic check rated below this
 
 
 # ---------------------------------------------------------------------------
@@ -266,10 +266,11 @@ class D_ClosingQuestions(Page):
 class E_Debrief(Page):
     @staticmethod
     def vars_for_template(player):
-        base = 'https://app.prolific.com/submissions/complete'
-        cc   = player.session.config.get('completion_code', '')
-        url  = f"{base}?cc={cc}" if cc else base
-        return dict(redirect_url=url, failed=player.failed_attention)
+        player.participant.finished = True
+        return dict(
+            redirect_url=player.session.prolific_completion_url,
+            failed=player.failed_attention,
+        )
 
 
 def custom_export(players):

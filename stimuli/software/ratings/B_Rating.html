@@ -10,12 +10,7 @@
     <div class="p-3 mb-3" style="font-size: 1rem; border-radius: 10px; background: #111118; color: #ffffff;">
         <strong>Reminder:</strong> A post is <strong>toxic</strong> if it contains language that a reasonable person would find
         <strong>attacking, devaluing, or harmful</strong> &mdash; or that disrupts civil, constructive discourse.
-        Rate from <strong>&minus;50</strong> (not at all toxic) to <strong>+50</strong> (extremely toxic).
-    </div>
-
-    <!-- Direction nudge (shown once, fades after a few seconds) -->
-    <div id="direction-nudge" style="font-size: 0.85rem; border-radius: 10px; background: #a30d4e; color: #ffffff; padding: 10px 16px; margin-bottom: 12px; transition: opacity 3s ease;">
-        <strong>left = civil (not at all toxic)</strong>, <strong>right =  extremely toxic</strong>.
+        Rate from <strong>0</strong> (not at all toxic) to <strong>100</strong> (extremely toxic).
     </div>
 
     <!-- Progress -->
@@ -73,18 +68,18 @@ function buildCards(pageIdx) {
                 <p style="font-size: 1rem; color: #111118; line-height: 1.6; margin-bottom: 18px;">${escapeHtml(post.text)}</p>
                 <div style="text-align: center; margin-bottom: 6px;">
                     <span id="val_${docId}" style="font-size: 1.5rem; font-weight: 700; color: #111118; min-width: 3rem; display: inline-block;">
-                        ${saved !== null ? (saved >= 0 ? '+' + saved : saved) : '&mdash;'}
+                        ${saved !== null ? saved : '&mdash;'}
                     </span>
                 </div>
                 <input type="range" class="form-range rating-slider"
                        id="slider_${docId}"
                        data-doc-id="${docId}"
-                       min="-50" max="50" step="1"
-                       value="${saved !== null ? saved : 0}"
+                       min="0" max="100" step="1"
+                       value="${saved !== null ? saved : 50}"
                        ${saved === null ? 'data-untouched="true"' : ''}>
                 <div style="display: flex; justify-content: space-between; margin-top: 4px;">
-                    <span style="font-size: 0.75rem; color: #a0a0b8;">&minus;50: Not at all toxic</span>
-                    <span style="font-size: 0.75rem; color: #a0a0b8;">+50: Extremely toxic</span>
+                    <span style="font-size: 0.75rem; color: #a0a0b8;">0: Not at all toxic</span>
+                    <span style="font-size: 0.75rem; color: #a0a0b8;">100: Extremely toxic</span>
                 </div>
             </div>`;
         container.appendChild(card);
@@ -101,7 +96,7 @@ function buildCards(pageIdx) {
             this.removeAttribute('data-untouched');
             const v = parseInt(this.value);
             ratings[docId] = v;
-            document.getElementById(`val_${docId}`).textContent = v >= 0 ? '+' + v : v;
+            document.getElementById(`val_${docId}`).textContent = v;
             liveSend({[docId]: v});
             updateNextButton();
         });
@@ -169,14 +164,6 @@ function escapeHtml(text) {
 
 renderPage(0);
 
-// Fade out the direction nudge after 4 seconds
-setTimeout(() => {
-    const nudge = document.getElementById('direction-nudge');
-    if (nudge) {
-        nudge.style.opacity = '0';
-        setTimeout(() => nudge.remove(), 1200);
-    }
-}, 4000);
 </script>
 
 {% endblock %}
