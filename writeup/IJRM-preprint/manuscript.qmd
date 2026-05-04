@@ -93,7 +93,7 @@ simulations <- fread(file = "../../data/simulations/simulations.csv")
 pilot <- fread(file = "../../pilot-dice/data/processed/pilot_participant_level_data.csv")[participant_code != "fdzno443" & session_code == "c1mufosc"]
 corpus <- fread(file = "../../software/DICE/static/data/toxic_movie_reactions.csv")
 validation_corpus <- fread(file = "../../stimuli/software/ratings/corpus.csv")
-raw_ratings <- fread(file = "../../data/raw/ratings_2026-04-22.csv")[nchar(prolific_pid) > 0]
+raw_ratings <- fread(file = "../../data/raw/ratings_2026-04-22.csv")[valid_participant == 1]
 ```
 
 ```{r helpers}

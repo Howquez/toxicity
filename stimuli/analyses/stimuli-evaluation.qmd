@@ -39,7 +39,7 @@ HUMAN_THRESHOLD <- 0.6  # ratings above this (0-1 scale) count as toxic
 ```
 
 ```{r read_data}
-raw <- fread(file = "../../data/raw/ratings_2026-04-22.csv")[nchar(prolific_pid) > 0]
+raw <- fread(file = "../../data/raw/ratings_2026-04-22.csv")[valid_participant == 1]
 time_spent <- fread(file = "../../data/raw/PageTimes-2026-04-22.csv")
 ```
 
