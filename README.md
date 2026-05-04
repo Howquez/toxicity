@@ -71,12 +71,28 @@ This repository contains all materials for our registered report stage 1 protoco
 
 ---
 
-## Software requirements
+## R packages for analysis
 
-**R**
-Version 4.4.1. Packages are managed via [`groundhog`](https://groundhogr.com) with date `2026-01-01`, which restores exact package versions automatically on first render. Required packages (installed automatically):
+R version 4.4.1 is required. Package versions are pinned via [`groundhog`](https://groundhogr.com) (date `2026-01-01`) and installed automatically on first render — no manual installation needed.
 
-`magrittr`, `data.table`, `ggplot2`, `patchwork`, `stringr`, `english`, `MOTE`, `flextable`, `fixest`, `modelsummary`, `scales`, `rstatix`, `gt`, `mgcv`, `sandwich`, `lmtest`, `margins`
+| Package | Version | Purpose |
+|---|---|---|
+| `data.table` | 1.18.0 | Data loading and wrangling |
+| `ggplot2` | 4.0.1 | Figures |
+| `patchwork` | 1.3.2 | Combining plots |
+| `fixest` | 0.13.2 | Fixed-effects regressions |
+| `scales` | 1.4.0 | Number formatting |
+| `mgcv` | 1.9.4 | Cubic spline smoother (two-lines test) |
+| `MOTE` | 1.2.2 | Effect sizes |
+| `flextable` | 0.9.10 | Tables |
+| `stringr` | 1.6.0 | String operations |
+| `english` | 1.2.6 | Number-to-word conversion |
+| `modelsummary` | 2.5.0 | Regression tables |
+| `rstatix` | 0.7.3 | Summary statistics |
+| `gt` | 1.2.0 | Tables |
+| `sandwich` | 3.1.1 | Robust standard errors |
+| `lmtest` | 0.9.40 | Coefficient tests |
+| `margins` | 0.3.28 | Marginal effects |
 
 **Quarto**
 Version 1.6 or later. The Typst PDF backend is used; no LaTeX installation required. The `preprint-typst` extension is bundled in `writeup/IJRM-preprint/_extensions/`.

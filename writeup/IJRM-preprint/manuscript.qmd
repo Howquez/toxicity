@@ -44,7 +44,7 @@ if (!requireNamespace("groundhog", quietly = TRUE)) {
   install.packages("groundhog")
 }
 
-pkgs <- c("magrittr", "data.table", "ggplot2", "patchwork", "stringr", "english", 
+pkgs <- c("data.table", "ggplot2", "patchwork", "stringr", "english",
           "MOTE", "flextable", "fixest", "modelsummary", "scales", "rstatix", "gt",
           "mgcv", "sandwich", "lmtest", "margins")
 
@@ -339,11 +339,11 @@ ci_fe_3      <- confint(toxicity_fe_3)["TOXICITY_dummy", ]
 lower_uplift <- apa(100 * ci_fe_3[1] / upworthy[, median(ctr)], decimals = 3, leading = FALSE)
 upper_uplift <- apa(100 * ci_fe_3[2] / upworthy[, median(ctr)], decimals = 3, leading = FALSE)
 
-n_experiments <- upworthy[, length(unique(clickability_test_id))] %>% formatC(big.mark = ",")
-n_headlines   <- upworthy[, length(unique(unique_identifier))] %>% formatC(big.mark = ",")
-n_impressions <- number(upworthy[, sum(impressions)], scale_cut = cut_short_scale(), accuracy = 0.1) # upworthy[, sum(impressions)] %>% formatC(big.mark = ",")
+n_experiments <- upworthy[, length(unique(clickability_test_id))] |>formatC(big.mark = ",")
+n_headlines   <- upworthy[, length(unique(unique_identifier))] |>formatC(big.mark = ",")
+n_impressions <- number(upworthy[, sum(impressions)], scale_cut = cut_short_scale(), accuracy = 0.1) # upworthy[, sum(impressions)] |>formatC(big.mark = ",")
 n_clicks <- number(upworthy[, sum(clicks)], scale_cut = cut_short_scale(), accuracy = 0.1)
-n_clicks      <- number(upworthy[, sum(clicks)], scale_cut = cut_short_scale(), accuracy = 0.1) # upworthy[, sum(clicks)] %>% formatC(big.mark = ",")
+n_clicks      <- number(upworthy[, sum(clicks)], scale_cut = cut_short_scale(), accuracy = 0.1) # upworthy[, sum(clicks)] |>formatC(big.mark = ",")
 avg_variants  <- as.english(floor(upworthy[, length(unique(unique_identifier))] / upworthy[, length(unique(clickability_test_id))]))
 ```
 
