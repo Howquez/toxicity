@@ -25,7 +25,7 @@ SESSION_CONFIG_DEFAULTS = dict(
     focal_line_position = 0.33,  # vertical position of focal line as share of viewport height (0 = top, 1 = bottom)
     url_param = 'PROLIFIC_PID',
     completion_code = 'CP23MT1T',
-    data_path = "DICE/static/data/toxic_movie_reactions.csv", # "DICE/static/data/sample_tweets.csv",
+    data_path = "DICE/static/data/toxic_movie_reactions_edited.csv",
     delimiter=',',
     feed_size = 25,
     creatives_path = "DICE/static/creatives",

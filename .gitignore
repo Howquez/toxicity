@@ -47,9 +47,7 @@ pilot-dice/data/raw/
 # Copyrighted PDFs — track .bib only
 literature/*.pdf
 
-# Large generated data files (reproducible from simulate.qmd)
-data/simulations/simulations.csv
-data/simulations/power_sim_*.csv
+# simulate.qmd outputs are tracked — remove entries if they grow too large
 
 # Large R model objects
 *.RData
