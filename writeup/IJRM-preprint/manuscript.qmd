@@ -2,24 +2,6 @@
 title: "Brand Safety in Toxic Feeds: A Registered Report"
 subtitle: ""
 running-head: "Registered Report Stage 1 Protocol"
-# author:
-#   - name: Hauke Roggenkamp
-#     email: hauke.roggenkamp@mtec.ethz.ch
-#     orcid: 0009-0005-5176-4718
-#     affiliation:
-#       - ref: 1
-#   - name: Jonas Goergen
-#     orcid: 0000-0002-6263-1532
-#     affiliation:
-#       - ref: 2
-# affiliations:
-#   - id: 1
-#     name: ETH Zurich
-#     department: Department of Management, Technology, and Economics
-#   - id: 2
-#     name: Kedge Business School
-#     department: Department of Marketing
-    
 knitr:
   opts_chunk:
     dev: "ragg_png"
