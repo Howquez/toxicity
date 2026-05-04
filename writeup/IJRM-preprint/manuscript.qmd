@@ -1,24 +1,24 @@
 ---
-title: "Advertising in Toxic Feeds: Ad Effectiveness & Brand Safety"
-subtitle: "Registered Report Stage 1 Protocol"
+title: "Brand Safety in Toxic Feeds: A Registered Report"
+subtitle: ""
 running-head: "Registered Report Stage 1 Protocol"
-author:
-  - name: Hauke Roggenkamp
-    email: hauke.roggenkamp@mtec.ethz.ch
-    orcid: 0009-0005-5176-4718
-    affiliation:
-      - ref: 1
-  - name: Jonas Goergen
-    orcid: 0000-0002-6263-1532
-    affiliation:
-      - ref: 2
-affiliations:
-  - id: 1
-    name: ETH Zurich
-    department: Department of Management, Technology, and Economics
-  - id: 2
-    name: Kedge Business School
-    department: Department of Marketing
+# author:
+#   - name: Hauke Roggenkamp
+#     email: hauke.roggenkamp@mtec.ethz.ch
+#     orcid: 0009-0005-5176-4718
+#     affiliation:
+#       - ref: 1
+#   - name: Jonas Goergen
+#     orcid: 0000-0002-6263-1532
+#     affiliation:
+#       - ref: 2
+# affiliations:
+#   - id: 1
+#     name: ETH Zurich
+#     department: Department of Management, Technology, and Economics
+#   - id: 2
+#     name: Kedge Business School
+#     department: Department of Marketing
     
 knitr:
   opts_chunk:
@@ -26,13 +26,17 @@ knitr:
     dpi: 300
   
 abstract: |
-  Toxic content on social media captures attention and drives engagement, yet brands overwhelmingly treat it as a reputational threat and withdraw advertising from toxic environments. These two responses reflect two literatures that examine the effects of toxicity in isolation: brand safety research documents associative contamination from unsafe adjacent content, while platform engagement research documents attentional and behavioral gains from negative and toxic content. No existing work examines both within the same feed exposure. We integrate these perspectives in a single empirical framework. Using a dose-response design with stimulus sampling, we manipulate the proportion of toxic content in simulated social media feeds and measure feed-level engagement, ad-level attention, and brand-level reputational outcomes. We predict an inverted-U relationship between feed-level toxicity and both feed engagement and ad engagement: moderate toxicity elevates arousal and deepens processing; high toxicity triggers aversion and disengagement. The reputational effect of toxicity on brand attitudes is theoretically ambiguous — the same attentional gains that benefit the ad also increase exposure to the aversive context — and is examined as a research question. Our design independently varies feed-level toxicity dose and adjacent-post toxicity, allowing simultaneous estimation of global and local effects. The findings inform brand safety strategy by providing a basis for evaluating the net effect of feed-level toxicity on advertising effectiveness.
+  Online toxicity is abundant and captures attention. Yet brands overwhelmingly treat it as a reputational threat and withdraw advertising. Prior research on toxicity and unsafe advertising contexts supports both responses, yet studied them only in isolation: brand safety research documents negative spillover from unsafe content, while platform research documents engagement advantages of negative and toxic content. We will integrate these perspectives in a single empirical framework proposed in this Stage 1 registered report protocol. Using a dose-response design with stimulus sampling, we will manipulate the proportion of toxic content in simulated but naturalistic social media feeds presented to 5,000 participants and measure ad effectiveness and brand safety. First, we predict an inverted-U relationship between feed-level toxicity and ad effectiveness: from low to moderate toxicity effectiveness measured as attention is elevated. High toxicity, however, results in reduced effectiveness as attention is withdrawn. For brand safety, we test for a linearly decreasing effect predicted by prior research. We further translate the attentional mechanism to brand safety to propose that brand safety is increasingly harmed when toxicity is rising up to moderate thresholds where attention is strongest. At high toxicity the withdrawal of attention results in attenuated harm to the brand. The findings aim to inform brand safety strategy by providing evidence on whether the attentional and reputational consequences of toxicity indeed warrant withdrawal from toxic environments.
 
 categories: [toxicity, brand safety, advertising, platforms]
 # authornote: |
 date: last-modified
 bibliography: ../../literature/_references.bib
 format:
+  docx:
+    execute:      
+      echo: false      
+      warning: false 
   preprint-typst:
     execute:      
       echo: false      
@@ -42,8 +46,8 @@ format:
     wordcount: true
     citeproc: true
     # Common options - uncomment to use
-    theme: default # jou                   # Journal theme (2-column)
-    # line-number: true            # Line numbering
+    theme: default # jou         # Journal theme (2-column)
+    # line-number: true          # Line numbering
     fontsize: 11pt               # Font size
     leading: 0.6em               # Line spacing
 ---
@@ -58,7 +62,7 @@ if (!requireNamespace("groundhog", quietly = TRUE)) {
   install.packages("groundhog")
 }
 
-pkgs <- c("magrittr", "data.table", "ggplot2", "patchwork", "stringr", 
+pkgs <- c("magrittr", "data.table", "ggplot2", "patchwork", "stringr", "english", 
           "MOTE", "flextable", "fixest", "modelsummary", "scales", "rstatix", "gt",
           "mgcv", "sandwich", "lmtest", "margins")
 
@@ -127,9 +131,10 @@ twolines_plot <- function(outcome, xvar = "feed_toxicity", ylabel,
                 ", p = ",  apa(p2_one, decimals = 3, leading = TRUE),
                 "  |  xc = ", apa(xc,   decimals = 3, leading = TRUE))
 
-  # Upper panel: raw data + LOESS smoother
-  smooth_method <- if (binary) "glm" else "loess"
-  smooth_args   <- if (binary) list(family = binomial) else list()
+  # Upper panel: raw data + cubic regression spline (matches twolines.R / Simonsohn 2018)
+  smooth_method <- if (binary) "glm" else "gam"
+  smooth_formula <- if (binary) y ~ x else y ~ s(x, bs = "cr")
+  smooth_args   <- if (binary) list(family = binomial) else list(method = "REML")
 
   p1 <- ggplot(data, aes(x = .data[[xvar]], y = .data[[outcome]])) +
     coord_cartesian(xlim = c(0, 1)) +
@@ -138,7 +143,7 @@ twolines_plot <- function(outcome, xvar = "feed_toxicity", ylabel,
     #             width = 0.01, height = if (binary) 0.02 else 0.1) +
     # geom_jitter(data = data[get(xvar) >  xc], colour = c_primary, alpha = 0.05,
     #             width = 0.01, height = if (binary) 0.02 else 0.1) +
-    geom_smooth(formula = "y ~ x", method = smooth_method,
+    geom_smooth(formula = smooth_formula, method = smooth_method,
                 method.args = smooth_args,
                 col = "#000000", fill = "#000000", lty = 2) +
     labs(x = "Toxicity", y = ylabel) +
@@ -193,23 +198,23 @@ _“If it bleeds, it leads”_
 #linebreak()
 ```
 
-Online platforms have increasingly become home to toxic discourses. Harassment, hate speech, cyberbullying, identity attacks, and deliberately insulting language pervade feeds across topics and languages, driven by recommendation algorithms and virality mechanisms amplifying such content [@RathjeVanBavel_2025]. This toxicity poses a challenge for the multi-billion dollar advertising industry operating on these platforms. When toxicity on X (formerly Twitter) escalated following changes in ownership and content moderation in late 2022, major advertisers including Apple, Disney, and IBM suspended their campaigns and the platform’s ad revenue declined by more than half within a year [@Dempsey_2023]. This was not an isolated case. The World Bank pulled advertising from X in 2024 after a paid placement appeared alongside content from a white supremacist organization [@LyonsStocker_2024]. These incidents, which recur across major platforms including Meta and YouTube [@MadioQuinn_2024], highlight a tension brands advertising online face: the same platforms that reach billions of consumers also expose branded content to environments brands cannot fully control. With global social media advertising projected to hit nearly $340 billion in 2026 [@Statista_2026] and social channels attracting the largest share of incremental ad dollars worldwide [@WARC_2026], the reputational and financial exposure and risk to brands is substantial.
+Online platforms have increasingly become home to toxic discourses. Harassment, hate speech, cyberbullying, identity attacks, and deliberately insulting language pervade feeds across topics and languages, driven by recommendation algorithms and virality mechanisms amplifying such content [@RathjeVanBavel_2025]. This toxicity poses a challenge for the multi-billion dollar advertising industry operating on these platforms. When toxicity on X (formerly Twitter) escalated following changes in ownership and content moderation in late 2022, major advertisers including Apple, Disney, and IBM suspended their campaigns and the platform’s ad revenue declined by more than half within a year [@Dempsey_2023]. This was not an isolated case. The World Bank pulled advertising from X in 2024 after a paid placement appeared alongside content from a white supremacist organization [@LyonsStocker_2024]. These incidents, which recur across major platforms including Meta and YouTube [@MadioQuinn_2024], highlight a tension brands advertising online face: the same platforms that reach billions of consumers also expose branded content to environments brands cannot fully control. With global social media advertising projected to hit nearly $340 billion in 2026 [@Statista_2026] and social channels attracting the largest share of incremental ad dollars worldwide [@WARC_2026], the reputational and financial risk to brands can be substantial.
 
 ```{=typst}
 #set par(first-line-indent: 1em)  // Reset to normal
 ```
 
-Marketing research examines this risk to brands through the lens of brand safety. Recent work on brand safety documents that the proximity of branded content to unsafe or negative material can contaminate brand perceptions, even when no explicit link between the brand and the adjacent content exists [@GrewalEtAl_2025]. The general recommendation, followed by both theory and practice, is that any association with this type of content should be avoided [for a recent exception, @SimonovVallettiVeiga_2024]. Accordingly, brand safety strategies in the form of detection algorithms, blocklists, and moderation have become a major point of concern for both brands and platforms. Among the unsafe content circulating online, toxicity represents a particularly prevalent and challenging source of contamination, given its harmful and targeted nature. Different from broader characterizations of unsafe content based on topics (e.g., war, smoking, sex), toxicity originates in discussion style and can thus challenge safety in any topical context.
+Marketing research examines this risk to brands through the lens of brand safety. Recent work on brand safety documents that the proximity of branded content to "unsafe" material can contaminate brand perceptions, even when no explicit link between the brand and the adjacent content exists [@GrewalEtAl_2025]. The general recommendation, followed by both theory and practice, is that any association with this type of content should be avoided [for a recent exception, @SimonovVallettiVeiga_2024]. Accordingly, brand safety strategies in the form of detection algorithms, blocklists, and moderation have become a major point of concern for both brands and platforms. Among the unsafe content circulating online, toxicity represents a particularly prevalent and challenging source of contamination, given its harmful and targeted nature. Different from broader characterizations of unsafe content based on topics (e.g., war, smoking, sex), toxicity originates in discussion style and can thus challenge safety in any topical context.
 
-A separate stream of platform research studies the notion that toxicity can have positive implications [@Beknazar-YuzbashevEtAl_2022]. Here, toxicity has been shown to drive attention and generate engagement. The platform-level implication seems different to the advice given to brands: instead of avoiding toxicity, it can retain and engage users. From this perspective, feeds containing toxicity might expose embedded advertisements to larger and more engaged audiences. More attention is generally considered positive for an ad’s effectiveness, but does that hold if this attention comes through and in a toxic context that might harm the brand.
+A separate stream of platform research studies the notion that toxicity can have positive implications [@Beknazar-YuzbashevEtAl_2022]. Here, toxicity has been shown to drive attention and generate engagement. The platform-level implication seems different to the advice given to brands: instead of avoiding toxicity, it can retain and engage users. From this perspective, feeds containing toxicity might expose embedded advertisements to larger and more engaged audiences. More attention is generally considered positive for an ad’s effectiveness, but does that hold if this attention stems from a toxic context that might harm the brand?
 
-These two streams generate an interesting context for the same managerial question: Should my brand withdraw from toxic discourse or is there a more nuanced approach warranted? Brand safety research advises general withdrawal from toxic environments to avoid reputational damage due to potential spillovers. Platform research implies that those same environments could increase exposure, attention, and engagement. We argue that existing work cannot resolve this seeming contradiction because each stream examines only one perspective in isolation. Brand safety studies typically measure ad and brand outcomes without accounting for the attention environment that toxicity creates. Platform studies often measure platform-level outcomes without tracking whether certain spillovers on brand safety might offset attentional or engagement gains. Marketing research has yet to examine both in combination and within the same feed exposure. 
+These two streams generate an interesting context for the same managerial question: Should a brand withdraw from toxic discourse or is there a more nuanced approach warranted? Brand safety research advises general withdrawal from toxic environments to avoid reputational damage due to potential spillovers. Platform research implies that those same environments could increase exposure, attention, and engagement. We argue that existing work cannot resolve this seeming contradiction because each stream examines only one perspective in isolation. Brand safety studies typically measure ad and brand outcomes without accounting for the attention environment that toxicity creates. Platform studies often measure platform-level outcomes without tracking whether certain spillovers on brand safety might offset attentional or engagement gains. Marketing research has yet to examine both in combination and within the same feed exposure. 
 
 We address this gap by integrating ad effectiveness and brand safety within a single empirical framework. Focusing on digital advertising on social media, where toxicity is widespread and brands exercise little control over surrounding content, we examine whether the relationship between toxicity, advertising effectiveness, and brand safety is more complex than either stream in isolation suggests. We manipulate the proportion of toxic content in simulated but naturalistic social media feeds using a Digital In-Context Experiment [@DICE_2025] combined with a dose-response design with stimulus sampling [@SimonsohnMontealegreEvangelidis_2025; @TomainoEtAl_2025] and measure ad effectiveness as well as brand safety across toxicity doses.
 
 Our central argument is that toxicity affects both ad effectiveness and brand safety outcomes through attention allocation in a non-monotonic form. Progressing from low to moderate toxicity doses, we expect attention to increase in toxicity. Elevated attention should affect ad effectiveness positively but brand safety negatively. A heightened emphasis on the brand in an increasingly toxic context causes harm. As toxicity is increasing to extreme levels, attention is withdrawn from the branded ad, yielding decreased effectiveness but attenuated safety compared to moderate toxicity doses. 
 
-With this research, we intend to contribute to theory and practice in online advertising and brand safety specifically. First, we combine previously separate research programs on brand safety and online toxicity. Extending recent work on toxic behavior in gaming [@BernritterEtAl_2025], we show that toxicity is an operationalizable construct with nuanced and unexpected effects for attention, ad effectiveness, and brand safety. Contrary to prior theorizing and practice, toxicity is not generally negative but might come with advantages conditional on dose. Second, adding to brand and platform research, we demonstrate that both actors face a trade-off wherein toxicity is driving attention and advertising effectiveness, but at the potential expense of brand safety. Solving this tradeoff will depend on monitoring and moderating toxicity doses for their effect on multiple metrics across stakeholders. Third, we apply recent advances in behavioral research combining traditional survey responses with unobtrusive measures to show that online research on advertising and platform dynamics can benefit from a more naturalistic and systematic empirical approach. While static vignette experiments can be helpful to isolate single variables and mechanisms, they may come at the cost of missing the varied effects of more natural interactions. 
+With this research, we intend to contribute to theory and practice in online advertising and brand safety specifically. First, we combine previously separate research programs on brand safety and online toxicity. Extending recent work on toxic behavior in gaming [@BernritterEtAl_2025], we show that toxicity is an operationalizable construct with nuanced and unexpected effects for attention, ad effectiveness, and brand safety. Contrary to prior theorizing and practice, toxicity is not generally negative but might come with advantages conditional on the doses. Second, adding to brand and platform research, we demonstrate that both actors face a trade-off wherein toxicity is driving attention and advertising effectiveness, but at the potential expense of brand safety. Solving this tradeoff will depend on monitoring and moderating toxicity doses for their effect on multiple metrics across stakeholders. Third, we apply recent advances in behavioral research combining traditional survey responses with unobtrusive measures to show that online research on advertising and platform dynamics can benefit from a more naturalistic and systematic empirical approach. While static vignette experiments can be helpful to isolate single variables and mechanisms, they may come at the cost of missing the varied effects of more natural interactions. 
 
 We proceed by presenting our theorizing around toxicity in online discourse and its effect on brand’s advertising and safety, culminating in three hypotheses. After that, we provide motivating evidence for toxicity’s effect on engagement from pilot data spanning 12,473 A/B tests in the context of a news platform. Then, we lay out the envisioned experimental paradigm. This includes the design, procedure and stimuli, outcomes, along with an analysis plan and sample size justification. Further, we discuss pilot data that informs our empirical strategy and confirms its feasibility.
 
@@ -224,9 +229,6 @@ Toxic discourse is pervasive across platforms, languages, and subjects [@AvalleE
 
 To meet these moderation demands, platforms can readily operationalize toxicity via automated classifiers [see e.g., @RibeiroEtAl_2023; @SinghalEtAl_2023]. These assign continuous toxicity scores to individual posts, enabling moderation decisions that human manual review cannot produce at the volume of contemporary platforms [@JhaverEtAl_2019]. The most widely deployed toxicity classifier, Google’s Perspective API, is trained on millions of human-annotated comments and runs on Reddit threads, The New York Times’ comment sections, and Wikipedia, among other platforms [@LeesEtAl_2022].
 
-For brand safety practice, toxicity offers a complementary perspective. Because toxicity describes communicative style rather than subject matter, it differs from the content category-driven approaches that govern programmatic brand safety. Established industry standards and individual company solutions implement blocklists that classify content by subject matter: violence, adult material, hate speech, and similar categories [e.g., @AmazonAds_2026; @GARM_2026]. These operationalizations are coarse and produce both type-1 and type-2 errors. Keyword blocklists over-block safe inventory by flagging topical terms regardless of communicative intent: during the Euro 2024 final, keywords such as “shoot” or “attack” caused nearly half of a UK publisher’s output to be excluded from advertising and as one advertising executive noted, the approach “frequently results in inventory that is contextually relevant, and safe, being blocked” (The Media Leader, 2024). Conversely, the same blocklists fail to detect unsafe content whenever a nominally harmless topic turns toxic through communicative style. Because toxicity is topic-independent, it addresses both failure modes simultaneously: it can flag unsafe contexts that topic-based filters miss while reducing exclusion of safe inventory. This captured dimension of communicative style is also what produces the attentional and attitudinal effects relevant to advertising outcomes (see “Motivating Evidence” section).
-
-
 For brand safety practice, toxicity offers a complementary perspective. Because toxicity describes communicative style rather than subject matter, it differs from the content category-driven approaches that govern programmatic brand safety. Established industry standards and individual company solutions implement blocklists that classify content by subject matter: violence, adult material, hate speech, and similar categories [e.g., @AmazonAds_2026; @GARM_2026; @ShehuEtAl_2021]. These operationalizations are coarse and produce both type-1 and type-2 errors. Keyword blocklists over-block safe inventory by flagging topical terms regardless of communicative intent: during the Euro 2024 final, keywords such as “shoot” or “attack” caused nearly half of a UK publisher’s output to be excluded from advertising [@Jack_2024], and as one advertising executive noted, the approach “frequently results in inventory that is contextually relevant, and safe, being blocked.” Conversely, the same blocklists fail to detect unsafe content whenever a nominally harmless topic turns toxic through communicative style. Because toxicity is topic-independent, it addresses both failure modes simultaneously: it can flag unsafe contexts that topic-based filters miss while reducing exclusion of safe inventory. This captured dimension of communicative style is also what produces the attentional, attitudinal, and arousal effects relevant to advertising outcomes (see “Motivating Evidence” section).
 
 
@@ -238,9 +240,9 @@ Toxicity is consequential for advertising along two dimensions. The first is ad 
 
 Evidence on toxicity in advertising is mixed [@BanerjeeEtAl_2026]. On the one hand, scholars find evidence for the claim from the infamous adage: “if it bleeds, it leads” [@Pooley_1989]. Toxic content generates larger, wider, and deeper reply threads than civil counterparts on Twitter [@SaveskiEtAl_2021] and across other platforms [@AvalleEtAl_2024], and reducing toxicity via a browser extension decreased user attention, time spent, impressions, and clicks [@Beknazar-YuzbashevJiménez-DuránMateusz_2024]. More generally, research on negative content demonstrated that it captures disproportionate attention [@PrattoJohn_1991; @RozinRoyzman_2001], receives higher engagement rates, greater sharing, and stronger recall than neutral and positive content [for an overview, see @RobertsonEtAl_2023]. Further, any threat-relevant stimuli, such as toxic communication (e.g., personal insult), activate automatic detection processes that elevate attention [@OhmanMineka_2001]. 
 
-On the other hand, sustained exposure to severely toxic content produces aversion and withdrawal: users report avoiding participation for fear of harassment or shutting down accounts entirely, and self-censorship and silencing are among the observed reactions [@LehnharEtAl_2016]. Moderation studies find that reducing toxicity can increase participation [@MatiasEtAl_2021; @WiseEtAl_2026], and widely applied classifiers define toxicity explicitly as a heightened propensity to leave a discussion [@LeesEtAl_2022; @AridorEtAl_2024].
+On the other hand, sustained exposure to severely toxic content produces aversion and withdrawal: users report avoiding participation for fear of harassment or shutting down accounts entirely, and self-censorship and silencing are among the observed reactions [@LehnharEtAl_2016]. Moderation studies find that reducing toxicity can increase participation [@WiseEtAl_2026], and widely applied classifiers define toxicity explicitly as a heightened propensity to leave a discussion [@LeesEtAl_2022; @AridorEtAl_2024].
 
-We argue that both effects may exist and that the level of toxicity represents the moderating variable, implying a non-monotonic relationship where attention is increasing first and decreasing later. The cue-utilization hypothesis provides a potential unifying mechanism [@Easterbrook_1959]. At low to moderate toxicity, the provocative and targeted nature of toxic communication raises overall attention and pulls in users who engage by replying, retaliating, defending, or spectating. Importantly, the widened attentional window encompasses adjacent stimuli including the ad. At extreme toxicity, attention is focused more on threat-relevant cues at the expense of peripheral stimuli [MarthaSutherland_2014; @VanSteenbergenEtAl_2011], and the ad — a commercially oriented, non-threatening element — loses attentional resources. Evidence from specific high-severity contexts is consistent with this: misogynistic hate speech reduces women’s participation in political discourse [@Carlson_2019], and toxicity decreases player engagement in gaming [@LiuEtAl_2025]. The mixed evidence is thus not contradictory but might reflect sampling across different positions on the toxicity continuum.
+We argue that both effects may exist and that the level of toxicity represents the moderating variable, implying a non-monotonic relationship where attention is increasing first and decreasing later. The cue-utilization hypothesis provides a potential unifying mechanism [@Easterbrook_1959]. At low to moderate toxicity, the provocative and targeted nature of toxic communication raises overall attention and pulls in users who engage by replying, retaliating, defending, or spectating. Importantly, the widened attentional window encompasses adjacent stimuli including the ad. At extreme toxicity, attention is focused more on threat-relevant cues at the expense of peripheral stimuli [@HarmonJonesEtAl_2013; @VanSteenbergenEtAl_2011], and the ad — a commercially oriented, non-threatening element — loses attentional resources. Evidence from specific high-severity contexts is consistent with this: misogynistic hate speech reduces women’s participation in political discourse [@Carlson_2019], and toxicity decreases player engagement in gaming [@LiuEtAl_2025]. The mixed evidence is thus not contradictory but might reflect sampling across different positions on the toxicity continuum.
 
 We expect that attention therefore depends on the toxicity dose in the feed. At low-to-moderate doses, the attentional pull from toxicity exceeds aversion. At high doses, the relationship reverses. We hypothesize an inverted U (see @fig-hypotheses A): attention allocation increases with toxicity dose up to a threshold and declines beyond it.
 
@@ -258,7 +260,7 @@ Naturally scrolling through a social media feed distributes attention across doz
 
 Work on advertising has pointed out the relevance of testing advertisement effects in naturalistic settings (Eisend 2009) and highlighted the need to account for cluttered media environments with attention competition and dilution (Ha and McCann 2008). Translated to our context, brand safety should be threatened only when the brand-unsafe context “cuts through the clutter” [e.g., @PietersWarlopWedel_2002; @OrdenesEtAl_2019] and the pairing is processed as such. To test this we apply a more realistic environment, that is, a feed in which the content competes for attention. We vary toxicity doses while naturally scrolling through the feed and mirror the attention allocation in realistic contexts. 
 
-We propose that under these conditions, the inverted U hypothesized for the effect of toxicity on attention under H1 will qualify the linear negative relationship under H2. Specifically, we expect that the relationship of toxicity on brand safety is itself non-monotonic. For brand safety, low toxicity generates little attention and therefore little harm – the brand should stay safe. As toxicity is increasing to moderate levels, where attention is maximized, safety should be harmed the strongest. For extreme toxicity doses attention is partially withdrawn and even in the presence of high toxicity, the lack of attention attenuates damage to brand safety (see also @fig-hypotheses C). Formally: 
+We propose that under these conditions, the inverted U-shape hypothesized for the effect of toxicity on attention under H1 will qualify the linear negative relationship under H2. Specifically, we expect that the relationship of toxicity on brand safety is itself non-monotonic. For brand safety, low toxicity generates little attention and therefore little harm – the brand should stay safe. As toxicity is increasing to moderate levels, where attention is maximized, safety should be harmed the strongest. For extreme toxicity doses attention is partially withdrawn and even in the presence of high toxicity, the lack of attention attenuates damage to brand safety (see also @fig-hypotheses C). Formally: 
 
 > **H3:** Toxicity and brand attitudes follow a non-linear relationship, such that brand attitudes decrease with toxicity dose up to a point, beyond which it partially recovers as attention withdraws.
 
@@ -294,6 +296,7 @@ p2 <- ggplot(data.frame(x = c(0, 1)), aes(x)) +
 p3 <- ggplot(data.frame(x = c(0, 1)), aes(x)) +
   stat_function(fun = function(x) 1 - x,
                 linetype = "dashed", color = "grey60", linewidth = 1) +
+  # stat_function(fun = function(x) 1 - 0.3*x - 3.5*x^2 + 3.0*x^2.6,
   stat_function(fun = function(x) 1 - 0.3*x - 3.3*x^2 + 3.3*x^3,
                 color = "#2ECC71", linewidth = 1.2) +
   geom_hline(yintercept = 0) +
@@ -305,7 +308,7 @@ p3 <- ggplot(data.frame(x = c(0, 1)), aes(x)) +
   theme_paper +
   theme(panel.grid.major = element_blank())
 
-p1 + p2 + p3 +
+p1 / p2 / p3 +
   plot_layout(axis_titles = "collect_x")
   # plot_annotation(tag_levels = "A")
 ```
@@ -346,29 +349,34 @@ toxicity_fe_4 <- fixest::feglm(fml = ctr ~ TOXICITY_dummy + length + complexity 
 
 
 ```{r stats}
-dummy_uplift <- apa(100 * coef(toxicity_fe_3)[1]/upworthy[, median(ctr)], 
-                    decimals = 3, 
+dummy_uplift <- apa(100 * coef(toxicity_fe_3)[1]/upworthy[, median(ctr)],
+                    decimals = 3,
                     leading = FALSE)
+
+ci_fe_3      <- confint(toxicity_fe_3)["TOXICITY_dummy", ]
+lower_uplift <- apa(100 * ci_fe_3[1] / upworthy[, median(ctr)], decimals = 3, leading = FALSE)
+upper_uplift <- apa(100 * ci_fe_3[2] / upworthy[, median(ctr)], decimals = 3, leading = FALSE)
 
 n_experiments <- upworthy[, length(unique(clickability_test_id))] %>% formatC(big.mark = ",")
 n_headlines   <- upworthy[, length(unique(unique_identifier))] %>% formatC(big.mark = ",")
 n_impressions <- number(upworthy[, sum(impressions)], scale_cut = cut_short_scale(), accuracy = 0.1) # upworthy[, sum(impressions)] %>% formatC(big.mark = ",")
 n_clicks <- number(upworthy[, sum(clicks)], scale_cut = cut_short_scale(), accuracy = 0.1)
 n_clicks      <- number(upworthy[, sum(clicks)], scale_cut = cut_short_scale(), accuracy = 0.1) # upworthy[, sum(clicks)] %>% formatC(big.mark = ",")
+avg_variants  <- as.english(floor(upworthy[, length(unique(unique_identifier))] / upworthy[, length(unique(clickability_test_id))]))
 ```
 
-Before designing an experiment, we sought observational data that complements previous findings [@Beknazar-YuzbashevEtAl_2022; @Beknazar-YuzbashevJiménez-DuránMateusz_2024; @AridorEtAl_2024] and speaks to the relationship between toxicity and attention at scale. We draw on the Upworthy Research Archive [@MatiasEtAl_2021], and data from a viral news platform that systematically tested headline variants to maximize reader engagement. Here, a click can be interpreted as a variant of a news headline cutting through the clutter and capturing interest in the underlying article – broadly consistent with H1.
+Before designing an experiment, we sought observational data that complements previous findings [@Beknazar-YuzbashevEtAl_2022; @Beknazar-YuzbashevJiménez-DuránMateusz_2024; @AridorEtAl_2024] and speaks to the relationship between toxicity and attention. We draw on the Upworthy Research Archive [@MatiasEtAl_2021]^[We use the pre-processed data provided in @ReissRoggenkamp_2025 as they also include variables on the news headline's valence [see also @RobertsonEtAl_2023], and data from a viral news platform that systematically tested headline variants to maximize reader engagement. Here, a click can be interpreted as a variant of a news headline cutting through the clutter and capturing interest in the underlying article – broadly consistent with H1.
 
-In this large-scale setting, which accounts for more than `r n_impressions` impressions, the company recorded `r n_experiments` A/B tests each randomly assigning website visitors to one of several headlines for a given article (`r n_headlines` variants in total). The recorded click-through rates (CTRs) range from 
+In this large-scale data, which accounts for more than `r n_impressions` impressions, the company recorded `r n_experiments` A/B tests each randomly assigning website visitors to one of approximately `r avg_variants` headline variants for an average article (`r n_headlines` variants in total). The recorded click-through rates (CTRs) range from 
 `r apa(upworthy[, 100 * min(ctr)], decimals = 3, leading = FALSE)`%
 to `r apa(upworthy[, 100 * max(ctr)], decimals = 3, leading = FALSE)`% 
 with an average of `r apa(upworthy[, 100 * mean(ctr)], decimals = 3, leading = TRUE)`% and median CTR at 
 `r apa(upworthy[, 100 * median(ctr)], decimals = 3, leading = TRUE)`%. 
 
 
-We first predicted the probability that people would perceive a headline as toxic using the Perspective API. Following prior research, we then classified headlines as toxic (vs. civil) if they exceed a predicted probability score of 60% (for toxicity classification, see also Stimuli Generation). This allowed us to compare toxic news headlines
-($Median^{Civil}_{CTR}=$ `r apa(upworthy[TOXICITY_dummy == 0, 100 * median(ctr)], decimals = 3, leading = TRUE)`%)
-with civil alternatives ($Median^{Toxic}_{CTR}=$ `r apa(upworthy[TOXICITY_dummy == 1, 100 * median(ctr)], decimals = 3, leading = TRUE)`%), suggesting that toxic headlines performed better on average. @fig-ECDF provides model-free support for this comparison: the distribution of CTRs is shifted rightward for toxic headlines across the full range of observed values. A fixed-effects regression that compares headlines which refer to the same article further quantifies the difference: the estimated uplift in CTR due to toxicity for any single article corresponds to `r dummy_uplift`% [add relevant statistics here] of the median CTR, a modest but robust effect that holds after controlling for headline length, readability, and negative emotional valence. This provides large-scale evidence that toxic communicative style, independent of topic or sentiment, can elevate individual interest in digital content, in line with our expectation that toxicity can increase attention.
+We first predicted the probability that people would perceive a headline as toxic using the Perspective API. Following prior research, we then classified headlines as toxic (vs. civil) if they exceed a predicted probability score of 60% [@AvalleEtAl_2024, see also our Stimuli Generation section]. This allowed us to compare toxic news headlines
+($Median^{Toxic}_{CTR}=$ `r apa(upworthy[TOXICITY_dummy == 1, 100 * median(ctr)], decimals = 3, leading = TRUE)`%)
+with civil alternatives ($Median^{Civil}_{CTR}=$ `r apa(upworthy[TOXICITY_dummy == 0, 100 * median(ctr)], decimals = 3, leading = TRUE)`%), suggesting that toxic headlines performed better on average. @fig-ECDF provides model-free support for this comparison: the distribution of CTRs is shifted rightward for toxic headlines across the full range of observed values. A fixed-effects regression that compares headlines which refer to the same article further quantifies the difference: the estimated uplift in CTR due to toxicity for any single article corresponds to `r dummy_uplift`% (95% CI: [`r lower_uplift`%, `r upper_uplift`%]) of the median CTR, a modest but robust effect that holds after controlling for headline length, readability, and negative emotional valence. This provides large-scale evidence that toxic communicative style, independent of topic or sentiment, can elevate individual interest in digital content, in line with our expectation that toxicity can increase attention.
 
 
 ```{r}
@@ -397,29 +405,29 @@ ggplot(data = upworthy,
         plot.title.position = "plot")
 ```
 
-Importantly, the presented field data comes with notable advantages over classic A/B testing discussed in marketing research [@BraunEtAl_2024]: The A/B tests were designed by the platform itself, visitors were randomly assigned to headline variants, one experiment ran at a time, and commercial incentives ensured careful implementation. This kind of data is usually proprietary and therefore rare. Despite these favorable features of the data, three questions that are central to our research, remain unanswered. First, clicks measure interest in the toxic headline itself, not attention spillover to adjacent branded content. Whether elevated interest in toxic content extends to a co-located sponsored post cannot be assessed. Second, the data does not provide a brand outcome. As a consequence, the data does not allow us to derive any information on brand attitudes which would speak to H2 and H3. Third, we could not test any dose-response relationship given the binary nature of the toxicity variable. Thus, we do not know where on the toxicity continuum these results would fall and whether there is indeed any inflection point.
+Importantly, the presented field data comes with notable advantages over classic A/B testing discussed in marketing research [@BraunEtAl_2024]: The A/B tests were designed by the platform itself, visitors were randomly assigned to headline variants, one experiment ran at a time, and commercial incentives likely ensured careful implementation. This kind of data is usually proprietary and therefore rare. Despite these favorable features of the data, two questions that are central to our research, remain unanswered. First, clicks measure interest in the toxic headline itself, not attention spillover to adjacent branded content. Whether elevated interest in toxic content extends to a co-located sponsored post cannot be assessed. Second, the data does not provide a brand outcome. As a consequence, the data does not allow us to derive any information on brand attitudes which would speak to H2 and H3.
 
-Addressing these limitations with additional field data is difficult, if not impossible. In absence of proprietary data, marketing researchers often rely on social media data that is either scraped retrospectively or generated using A/B-testing functionalities. However, both of these data sources are affected by algorithmic interference: algorithms determine who sees what in ways that are unobservable to researchers. This complicates isolating the effect of toxicity (or any other variable) on the outcome of interest [@XuZhangZhou_2020; @Johnson_2023; @BraunSchwartz_2025; @BoegershausenEtAl_2025]. More specific to our question, even absent algorithmic interference, it is usually not possible to manipulate or even observe the context surrounding a focal ad, which is required for measuring a feed’s toxicity and studying spillover effects that characterize brand safety. 
+Addressing these limitations with additional field data is difficult, if not impossible. In absence of proprietary data, marketing researchers often rely on social media data that is either scraped retrospectively or generated using social media platforms' so-called A/B-testing functionalities. However, both of these data sources are affected by algorithmic interference: algorithms determine who sees what in ways that are unobservable to researchers and may lead to unbalanced samples. This complicates isolating the effect of toxicity (or any other variable) on the outcome of interest [@XuZhangZhou_2020; @Johnson_2023; @BraunSchwartz_2025; @BoegershausenEtAl_2025]. More specific to our question, even absent algorithmic interference, it is usually not possible to manipulate or even observe the context surrounding a focal ad, which is required for measuring a feed’s toxicity and studying spillover effects that characterize brand safety in the domain of social media. 
 
 # Experimental Evidence
 
-In our proposed study we therefore draw on recent advances in consumer research to design an experiment that retains some of the field data’s ecological validity under controlled conditions. Specifically, we designed a Digital In-Context Experiment [@DICE_2025; @oTree] that mimics the user interface of scrollable social media feeds. This allows us to embed a sponsored post (i.e., an ad) in a feed whose toxicity dose we manipulate exogenously in a between-subjects design. To increase both the ecological as well as the internal validity of our stimuli, we employed stimulus sampling and scope testing with AI-generated stimuli (STAGS) that we thoroughly validated [@SimonsohnMontealegreEvangelidis_2025; @TomainoEtAl_2025]. The remainder of this section describes these features of our design in detail.  
+In our proposed study we therefore draw on recent methodological advances in consumer research to design an experiment that retains some of the field data’s ecological validity under controlled conditions. Specifically, we designed a Digital In-Context Experiment [@DICE_2025; @oTree] that mimics the user interface of scrollable social media feeds. This allows us to embed a sponsored post (i.e., an ad) in a feed whose toxicity dose we manipulate exogenously and continuously in a between-subjects design. To increase both the ecological as well as the internal validity of our stimuli, we employed stimulus sampling and scope testing with AI-generated stimuli (STAGS) that we thoroughly validated [@SimonsohnMontealegreEvangelidis_2025; @TomainoEtAl_2025]. The remainder of this section describes these features of our proposed experiment in detail.  
 
 ## Design
 
-Our Digital In-Context Experiment renders a social media feed in a responsive browser interface that mimics the visual structure of a microblogging platform and records granular behavioral data unobtrusively (i.e., without requiring any explicit response from participants; see @fig-stimuli). Each participant views a single feed consisting of 25 organic posts around the movie _Avatar: Fire and Ash_ (2025) and one sponsored post advertising snacks from the well-known M&M’s brand. This design mirrors topic-related social media threads found on Reddit or X. We choose the movie context as it allows us to test a marketing-relevant topic that is not polarizing and familiar as well as potentially interesting to participants. At the same time, it is not unsafe or toxic per se and still enables toxicity doses and opinion valence to vary. 
+Our Digital In-Context Experiment renders a social media feed in a responsive browser interface that mimics the visual structure of a microblogging platform (see @fig-stimuli) and records granular behavioral data unobtrusively (i.e., without requiring any explicit response from participants). Each participant views a single feed consisting of 25 organic posts around the movie _Avatar: Fire and Ash_ (2025) and one sponsored post advertising snacks from the well-known M&M’s brand. This design mirrors topic-related social media threads found on Reddit or X. We choose the movie context as it allows us to test a marketing-relevant topic that is not polarizing but familiar and potentially interesting to participants. At the same time, it is not unsafe or toxic per se and still enables toxicity doses and opinion valence to vary. 
 
-We operationalize a feed’s toxicity dose $d$ as the proportion of toxic organic posts (i.e., mimicked user generated content). It ranges from 0 (a fully civil feed) to 1 (a fully toxic feed) in increments of $\frac{1}{25}$. We then randomize $d$ between-subjects to create a continuous manipulation. This will allow us to estimate the full dose-response function and test the various functional forms predicted in H1-H3.
+We operationalize a feed’s toxicity dose $d$ as the proportion of toxic organic posts (i.e., mimicked user generated content). It ranges from 0 (a fully civil feed) to 1 (a fully toxic feed) in increments of $\frac{1}{25}$. We then randomize $d$ between-subjects to create a continuous manipulation. This will allow us to estimate the full dose-response function and to test the functional forms predicted in H1-H3.
 
 ## Stimuli
 
 ### Generation
 
-The continuous toxicity manipulation relies on adequate stimuli, i.e., a realistic pool of social media posts. To generate these stimuli, we combine stimulus sampling [@SimonsohnMontealegreEvangelidis_2025] and STAGS [@TomainoEtAl_2025]. Finally, we had human evaluators as well as a Large Language Model score the stimuli for validation.
+The continuous toxicity manipulation relies on adequate stimuli, i.e., a realistic pool of social media posts. To generate these stimuli, we combined stimulus sampling [@SimonsohnMontealegreEvangelidis_2025] and STAGS [@TomainoEtAl_2025]. Finally, we had human evaluators as well as a Large Language Model score the stimuli for validation.
 
-Stimulus sampling treats stimuli the way experiments typically treat participants: just as findings based on a single participant would not generalize, findings based on a narrow set of stimuli may also reflect idiosyncratic features of this particular set (rather than the construct they are meant to operationalize). The approach addresses this by constructing a large corpus of social media posts and independently sampling from it for each participant, so that idiosyncratic post features are orthogonal to the dose manipulation. STAGS complements this by making large-scale corpus construction tractable.^[While the current implementation anchors around the movie-themed context, the STAGS approach allows us to extend the stimulus generation to other settings, as a new corpus for a different topic or product requires only minor changes to the underlying prompts and a final validation step.] Specifically, we use generative AI to produce many social media posts across a range of toxicity levels while varying dimensions such as writing style, thematic focus, and post length that would be difficult to control systematically through manual construction or web scraping. While we do create posts that have idiosyncratic features, our dose-response estimates are unlikely to reflect these idiosyncrasies, because these features vary across the corpus. Taken together, STAGS supplies a diverse corpus spanning the full toxicity range, and stimulus sampling then draws independently from this corpus for each participant to implement the dose-response manipulation.
+Stimulus sampling treats stimuli the way experiments typically treat participants: just as findings based on a single participant would not generalize, findings based on a narrow set of stimuli may also reflect idiosyncratic features of this particular set (rather than the construct they are meant to operationalize). The approach addresses this by constructing a large corpus of social media posts and independently sampling from it for each participant, so that idiosyncratic post features are orthogonal to the dose manipulation. STAGS complements this by making large-scale corpus construction tractable.^[While the current implementation anchors around the movie-themed context, the STAGS approach allows us to extend the stimulus generation to other settings, as a new corpus for a different topic or product requires only minor changes to the underlying prompts in addition to a final validation step.] Specifically, we use generative AI to produce many social media posts across a range of toxicity levels while varying dimensions such as writing style, thematic focus, and post length that would be difficult to control systematically through manual construction or web scraping. While we do create posts that have idiosyncratic features, our dose-response estimates are unlikely to reflect these idiosyncrasies, because these features vary across the corpus. Taken together, STAGS supplies a diverse corpus spanning the full toxicity range, and stimulus sampling then draws independently from this corpus for each participant to implement the dose-response manipulation.
 
-These approaches mitigate issues we see in extracting the toxicity stimuli (e.g., via web scraping) or manually constructing them via matched (non-)toxic pairs, which suffer from inevitable confounds, because toxicity often correlates with several other content attributes. For example, a revision that removes the toxicity from a single toxic post to create a counterfactual may change other latent dimensions as well. Our approach, as well, hinges on the quality of the resulting corpus. We therefore proceed by first, describing the generation process in detail and then documenting the validity profile of the resulting stimuli.
+These approaches mitigate issues we see in extracting the toxicity stimuli (e.g., via web scraping) or manually constructing them via matched (non-)toxic pairs, which suffer from inevitable confounds, because toxicity often correlates with several latent content attributes. For example, a revision that removes the toxicity from a single toxic post to create a counterfactual may change other latent dimensions as well. Our approach, as well, hinges on the quality of the resulting corpus. We therefore proceed by first, describing the generation process in detail before we describe how we validated the stimuli in the subsequent section.
 
 Our stimuli generation spanned four stages. In the first stage, we prompted the Grok-3 API (xAI) to generate topic-relevant posts across four broad toxicity levels (i.e., civil, mildly toxic, toxic, and highly toxic) while independently varying length, writing style, sentiment, and thematic focus (e.g., actors, studio, writing). Each post was then scored using the Google Perspective API. This API provides a continuous toxicity score on a $[0, 1]$ scale and constitutes the industry standard for computational toxicity detection [@AridorEtAl_2024]. The ratings can be interpreted as the likelihood that a human reader would perceive the text as toxic. 
 
@@ -432,9 +440,9 @@ This initial stimuli generation produced adequate coverage at the extremes of th
 ::::
 
 
-Following the industry’s content moderation practices as well as prior academic work [@AvalleEtAl_2024], we then used a toxicity threshold of .6 to classify a post as toxic. This eventually yielded two pools to sample from [@SimonsohnMontealegreEvangelidis_2025] – one toxic pool that would have been flagged and potentially moderated via the Perspective API and one non-toxic, or “civil”, pool. For a participant assigned dose $d$, the feed is assembled by sampling $d \times 25$ posts without replacement from the toxic pool and $(1 - d) \times 25$ posts from the civil pool, then randomly shuffling the resulting 25 organic posts. Each participant draws an independent sample, so participants assigned the same dose see different posts in a different order.  
+Following the industry’s content moderation practices as well as prior academic work [@AvalleEtAl_2024], we then used a toxicity threshold of 60% to classify a post as toxic. This eventually yielded two pools to sample from: one toxic pool that would have been flagged and potentially moderated via the Perspective API and one non-toxic, or “civil”, pool. For a participant assigned dose $d$, the feed is assembled by sampling $d \cdot 25$ posts without replacement from the toxic pool and $(1 - d) \cdot 25$ posts from the civil pool, then randomly shuffling the resulting 25 organic posts. Each participant draws an independent sample, so participants assigned the same dose see different posts in a different order.  
 
-In every feed, we further added one stimulus that mimicked a sponsored post by the M&M’s brand. The post included a call-to-action, inviting participants to enter an incentive-compatible prize lottery by clicking on it (see Figure XX). This lottery offered the opportunity to @fig-stimuli. The sponsored post is identical across all dose conditions and inserted at a fixed position (10th scroll position; see our "Pilot" section for reasoning behind position). The brand and product category were chosen to match the scenario framing: a snack brand is a contextually plausible advertiser in a feed about a movie.
+In every feed, we further added one stimulus that mimicked a sponsored post by the M&M’s brand. The post included a call-to-action, inviting participants to enter an incentive-compatible prize lottery by clicking on it (see @fig-stimuli). This lottery offered the opportunity to win a USD 35 voucher for an online platform delivering snacks (including M&M's). The sponsored post is identical across all dose conditions and inserted at a fixed position (10th scroll position; see our "Pilot" section for reasoning behind position). The brand and product category were chosen to match the scenario framing: a snack brand is a contextually plausible advertiser in a feed about a movie.
 
 
 ### Validation
@@ -518,7 +526,7 @@ r_machines <- cor.test(dt_valid$toxicity, dt_valid$gpt_toxicity, method = "pears
 
 We validated the resulting stimuli and their toxicity against two independent sources: `r n_after` Prolific participants rated a stratified subset of the stimulus corpus, and GPT-4o-mini (version `gpt-4o-mini-2024-07-18`) scored every post in the full corpus using the same construct definition as the human raters.
 
-For human validation, we drew 100 posts from the stimulus corpus stratified across the ten Perspective score bins (10 per bin) and recruited participants on Prolific, restricting the sample to Canadian and US-American residents with a task-approval rate of at least 99% and self-reported English fluency. The study ran in oTree [@oTree]. 
+For human validation, we drew 100 posts from the stimulus corpus stratified across ten Perspective score bins (10 per bin) and recruited participants on Prolific, restricting the sample to Canadian and US-American residents with a task-approval rate of at least 99% and self-reported English fluency. The study ran in oTree [@oTree]. 
 
 Before rating, participants read the toxicity definition below and then worked through three annotated calibration examples (one civil, one borderline, one clearly toxic) to anchor their judgments: _"language that a reasonable person would find attacking, devaluing, or harmful -- or that disrupts civil, constructive discourse."_
 
@@ -526,7 +534,7 @@ Each participant then rated a random selection of 36 posts spread across six pag
 
 For the analysis, we mirrored the Perspective API operationalization and for each post calculated the proportion of raters who assigned a score above 0.6 (on the 0-1 scale). We then compute three Pearson correlations: the Perspective API score against the mean human rating per post, the Perspective API score against the proportion of raters who exceeded 0.6, and the Perspective API score against the GPT-4o-mini toxicity score across the full corpus (see panels A, B, and C in @fig-convergent). The first two correlations describe criterion validity against human judgment via complementary aggregation schemes whereas the third provides a cross-check that requires no human data.
 
-All three panels support the decision to use the Perspective API score as a reliable measure of post-level toxicity. Mean human ratings tracked Perspective API scores closely (`r fmt_r(r_persp)`),  and agreement was essentially unchanged for the proportion-based operationalisation (`r fmt_r(r_prop)`). Human raters and GPT-4o-mini also agreed within the validation subsample (`r fmt_r(r_gpt)`). Panel C extends this to the full corpus, where the two automated classifiers, which differ in architecture, training data, and scoring rubric, aligned tightly (`r fmt_r(r_machines)`). The convergence of human raters, a purpose-built toxicity classifier, and a general-purpose language model on our generated  posts provides evidence that a) they are criterion valid for toxicity and b) the Perspective API score is an adequate classifier capturing coherent, human-interpretable post toxicity at scale.
+All three panels in @fig-convergent support the decision to use the Perspective API score as a reliable measure of post-level toxicity. Mean human ratings tracked Perspective API scores closely (`r fmt_r(r_persp)`),  and agreement was essentially unchanged for the proportion-based operationalisation (`r fmt_r(r_prop)`). Human raters and GPT-4o-mini also agreed within the validation subsample (`r fmt_r(r_gpt)`). Panel C extends this to the full corpus, where the two automated classifiers, which differ in architecture, training data, and scoring rubric, aligned tightly (`r fmt_r(r_machines)`). The convergence of human raters, a purpose-built toxicity classifier, and a general-purpose language model on our generated  posts provides evidence that a) they are criterion valid for toxicity and b) the Perspective API score is an adequate classifier capturing coherent, human-interpretable post toxicity at scale.
 
 :::: {.place arguments='top, scope: "parent", float: true'}
 
@@ -600,7 +608,7 @@ p4 <- ggplot(data = dt_valid,
 
 ## Procedure
 
-The experimental architecture is set up and fully functional (see https://forecastsurvey.herokuapp.com/demo) and proceeds as follows: after providing informed consent, participants first read a brief scenario contextualizing the task. They are informed that they had recently come across the *Avatar: Fire and Ash* movie and were opening a microblogging feed to learn about others’ opinions. Next, participants are instructed to browse the ensuing feed at whatever pace and depth feels natural to them. We add a “Done browsing” button for them to click whenever they wish to exit the feed. Afterwards, participants are redirected to a Qualtrics survey. They first provide demographic information as a filler task. After that, participants report their unaided and aided recall as well as brand attitudes. The remaining exploratory measures specified below follow in this order: exploratory dependent variables and covariates.
+The experimental architecture is set up and fully functional (see https://forecastsurvey.herokuapp.com/demo) and proceeds as follows: after providing informed consent, participants first read a brief scenario contextualizing the task. They are informed that they had recently come across the *Avatar: Fire and Ash* movie and were opening a microblogging feed to learn about others’ opinions. Next, participants are instructed to browse the ensuing feed at whatever pace and depth feels natural to them. We add a “Done browsing” button (see the header depicted in @fig-stimuli) for them to click whenever they wish to exit the feed. Afterwards, we redirected participants to a Qualtrics survey where they first provide demographic information as a filler task. After that, participants were tested for unaided and aided recall and asked for brand attitudes. We report these measures in more detail in the next section.
 
 ## Measures
 
@@ -610,17 +618,16 @@ DICE enables us to combine survey responses with unobtrusive measures. More spec
 
 #### Dwell Time
 
-Dwell time (on the sponsored post; measured in seconds; log-transformed) serves as the primary outcome variable measuring ad effectiveness. It represents a proxy to measure the (in-)attention allocated to the sponsored post and recorded continuously by the viewport tracker without requiring any active response from participants. Dwell time shows high concurrent validity with mobile eye-tracking measures ($r = .89$ with gaze duration) and accounts for 76% of the variance in brand recall in validation data [@BrunsEtAl_2025]. The sample size is powered for this outcome and H1 is supported or rejected on the basis of this outcome alone.
+Dwell time (on the sponsored post; measured in seconds; log-transformed) serves as the primary outcome variable measuring ad effectiveness. It represents a proxy to measure the attention allocated to the sponsored post and recorded continuously by the viewport tracker without requiring any active response from participants. Dwell time shows high concurrent validity with mobile eye-tracking measures ($r = .89$ with gaze duration) and accounts for 76% of the variance in brand recall in validation data [@BrunsEtAl_2025]. The sample size is powered for this outcome and H1 is supported or rejected on the basis of this outcome alone.
 
 #### Recall
 
-Unaided recall (binary: recalled = 1; 0 otherwise) is a secondary outcome variable. We treat recall as secondary as prior work suggests that recall is not necessary for attitudinal effects to emerge [@ShehuEtAl_2021]. Participants are asked to list any brands from which they recall having seen an ad in the feed. This captures whether exposure was sufficient to encode the brand into memory without a cue, and is stricter and less susceptible to guessing than aided recall [see also @CampbellKeller_2003; @ShehuEtAl_2021; @SimonovVallettiVeiga_2024]. Aided recall is reported as a robustness check when unaided recall is sparse.
+Unaided recall (binary: recalled = 1; 0 otherwise) is a secondary outcome variable as prior work suggests that recall is not necessary for attitudinal effects to emerge [@ShehuEtAl_2021]. Participants are asked to list any brands from which they recall having seen an ad in the feed. This captures whether exposure was sufficient to encode the brand into memory without a cue, and is stricter and less susceptible to guessing than aided recall [see also @CampbellKeller_2003; @ShehuEtAl_2021; @SimonovVallettiVeiga_2024]. Aided recall is reported as a robustness check when unaided recall is sparse.
 
 ### Brand Safety Operationalized as Brand Attitudes
 
-Brand attitudes, calculated as average across the five statements drawn from @GrewalEtAl_2025, is the primary outcome for brand safety.  The measure covers the following items all answered on a seven-point Likert scale (1 = Strongly disagree, 7 = Strongly agree): “I believe M&M’s is a quality brand;” “I would consider buying products from M&M’s;” “I would recommend products from M&M’s to someone else;” “I would like to be associated with M&M’s;” “I believe I would like M&M’s.” H2 and H3 are accepted or rejected on the basis of this outcome alone. 
-
-To control for potential general spillovers not specific to the brand sponsoring the ad we include a second brand attitude composite measure for Hershey’s. As a robustness check this measure will be deducted from the M&M’s average to achieve an attitudinal measure corrected for any unspecific spillover.
+Brand attitudes, calculated as average across the five statements drawn from @GrewalEtAl_2025, is the primary outcome for brand safety.  The measure covers the following items, which are all answered on a seven-point Likert scale (1 = Strongly disagree, 7 = Strongly agree): “I believe M&M’s is a quality brand;” “I would consider buying products from M&M’s;” “I would recommend products from M&M’s to someone else;” “I would like to be associated with M&M’s;” “I believe I would like M&M’s.” H2 and H3 are accepted or rejected on the basis of this outcome alone. 
+To control for potential general spillovers not specific to the brand sponsoring the ad we include a second brand attitude composite measure for the brand Hershey’s. As a robustness check this measure will be deducted from the M&M’s average to achieve an attitudinal measure corrected for any unspecific spillover.
 
 ### Additional Measures
 
@@ -643,7 +650,7 @@ We further measured additional variables informed by prior research on brand saf
 
 ## Pilot Data
 
-To establish the feasibility of our methods, determine necessary sample sizes, and provide a first proof of concept, we conducted a pilot study (see also https://osf.io/j6q3r/overview?view_only=502570a1d8c244389600e51181464b84 for all data, code, software, and materials).
+To establish the feasibility of our methods, to determine the necessary sample size, and to provide a first proof of concept, we conducted a pilot study (see also https://osf.io/j6q3r/overview?view_only=502570a1d8c244389600e51181464b84 for all data, code, software, and materials).
 
 ```{r some_summaries}
 # Pilot noise estimates
@@ -733,7 +740,9 @@ The “Done Browsing” button allowed participants to leave the feed at any scr
 (`r apa(100 * pilot[scroll_depth >= 14, .N] / pilot[, .N], decimals = 1)`%) 
 scrolled far enough to reach the sponsored post and the median participant encountered `r pilot[, median(scroll_depth)]` social media posts in total. While this feature causes data loss, we see its methodical merit. First, it prevents dwell time contamination from participants who only scroll to the end of the feed to finish the task, and second, it provides a natural measure of ad effectiveness and feed engagement.^[Note that this implies that our operationalization of the toxicity dose (i.e., the fraction of organic posts that is classified as toxic) allows us to estimate the Intention-to-Treat (ITT). The ITT describes the effect of assigning a treatment, regardless of compliance. Since not every participant scrolls to the end of their assigned social media feed, however, the assigned toxicity dose may differ from the received dose that would be used to estimate an Average Treatment Effect (ATE).] 
 To keep exposure high overall and reduce a loss in statistical power, we decided to move the sponsored post up to the 10th position, which 
-`r apa(reach_dt[post == 10, 100 * prop], decimals = 1)`% of participants were exposed to (@fig-descriptives, A). One might further worry that if toxicity affects scroll depth, dwell time (observed only among exposed participants) would be subject to endogenous selection bias. However, toxicity dose did not predict scroll depth in the pilot `r corr_toxicity_depth_label`.
+`r apa(reach_dt[post == 10, 100 * prop], decimals = 1)`% of participants were exposed to (@fig-descriptives, A). 
+
+One might further worry that if toxicity affects scroll depth, dwell time (observed only among exposed participants) would be subject to endogenous selection bias. However, toxicity dose did not predict scroll depth in the pilot `r corr_toxicity_depth_label`.
 
 
 :::: {.place arguments='top, scope: "parent", float: true'}
@@ -797,22 +806,22 @@ simulations[, log_dwell_time  := log(ad_dwell_time)]
 simulations[, log_time_on_feed := log(time_on_feed)]
 ```
 
-Two of our hypotheses involve relationships that are non-monotonic. More specifically, H1 and H3 predict an (inverted) U-shape which translates to functional form with sign changes: for low values of toxicity, its effect on the dependent variable is negative, whereas for high values of toxicity, its effect on the dependent variable is positive (or vice versa). To capture this type of relationship, we will apply the two-lines approach suggested by @Simonsohn_2018. Implementing his proposed analysis we will (1) fit a cubic spline for visual inspection, (2) apply the _Robin Hood algorithm_ to determine a break, and (3) estimate a discontinuous regression with one slope below and one slope above that break point. An exemplary U-shape will then be supported by the data if the first estimated slope is negative, while the latter is positive.
+Two of our hypotheses involve relationships that are non-monotonic. More specifically, H1 and H3 predict an (inverted) U-shape which translates to functional form with sign changes: for low values of toxicity, its effect on the dependent variable is negative, whereas for high values of toxicity, its effect on the dependent variable is positive (or vice versa). To capture this type of relationship, we will apply the two-lines approach suggested by @Simonsohn_2018. Implementing his proposed analysis we will (1) fit a cubic spline for visual inspection, (2) apply the _Robin Hood algorithm_ to determine a break, and (3) estimate a discontinuous regression with one slope below and one slope above that break point. An U-shape will then be supported by the data if the first estimated slope is negative, while the latter is positive.
 
 We test all hypotheses with one-sided tests at $\alpha = .05$ and target statistical power of 80% (see our Sample Size Justification). Age and gender are included as covariates in all analyses. For each hypothesis, the primary dependent variable is the basis for confirmatory inference.
 
-We provide the R-code needed to run these analyses wrapped in a quarto document in our OSF repository.
+To facilitate computational reproducibility, we follow a literate programming [@Knuth_1984] approach: the Quarto source file that renders this manuscript simultaneously contains all data operations and analysis code. This means that the document deposited on OSF is both the manuscript and its own analysis script. Hence, rendering it with the raw data reproduces every number, table, and figure reported here.
 
 
 
 ### H1: Toxicity Doses and Attention
 
-We predict that the toxicity dose and the dependent variable follow an inverted U-shaped relationship. The primary dependent variable is ad dwell time (i.e., dwell time on the sponsored post) and the secondary dependent variable is unaided brand recall. Following a two-lines analysis [@Simonsohn_2018], H1 is supported if both slopes (denoted $b_1$ and $b_2$) pass one-sided tests ($\alpha = .05$) in the predicted directions: $\hat\beta_{below} > 0$ below the break point and $\hat\beta_{above} < 0$ above it. 
+We predict that the toxicity dose and the dependent variable follow an _inverted_ U-shaped relationship. The primary dependent variable is ad dwell time (i.e., dwell time on the sponsored post) and the secondary dependent variable is unaided brand recall. Following the two-lines analysis [@Simonsohn_2018], H1 is supported if both slopes (denoted $b_1$ and $b_2$) pass one-sided tests ($\alpha = .05$) in the predicted directions: $\hat\beta_{below} > 0$ below the break point and $\hat\beta_{above} < 0$ above it (see @fig-dwell-time for an illustration based on simulated data).
 
 :::: {.place arguments='top, scope: "parent", float: true'}
 
 ```{r fig-dwell-time}
-#| fig-cap: "Two-lines test based on simulated data: toxicity doses and ad dwell time. Upper panel shows raw data with LOESS smoother; lower panel shows the two fitted regression lines. Break point determined by the Robin Hood procedure [@Simonsohn_2018]."
+#| fig-cap: "Two-lines test based on simulated data: toxicity doses and ad dwell time. Upper panel shows raw data with cubic regression spline smoother; lower panel shows the two fitted regression lines. Break point determined by the Robin Hood procedure [@Simonsohn_2018]."
 
 twolines_plot("log_dwell_time", ylabel = "log(Ad Dwell Time)")
 ```
@@ -875,7 +884,7 @@ twolines_plot("brand_attitude", ylabel = "Brand Attitudes (1–7)")
 
 ## Exploratory analyses
 
-In addition to the analyses described above, we will employ several additional analyses which we label as exploratory. Specifically, we will relax the statistical approach for our non-monotonic prediction and change the operationalization of the independent variable. Furthermore, we will specify alternative dependent variables as well as additional covariates. We describe each alteration in what follows.
+In addition to the analyses described above, we will employ several analyses which we label as exploratory. Specifically, we will relax the statistical approach for our non-monotonic prediction and change the operationalization of the independent variable. Furthermore, we will specify alternative dependent variables as well as additional covariates. We describe each alteration in what follows.
 
 ### Alternative Statistical Approach 
 
@@ -883,17 +892,18 @@ Because the two-lines test requires a true sign reversal, a positive-then-flat t
 $$ 
 Y_i = \beta_0 + \beta_1 \cdot \text{Toxicity}_i + \beta_2 \cdot \text{Toxicity}_i^2 + \beta_3 \cdot \text{Age}_i + \beta_4 \cdot \text{Gender}_i + \varepsilon_i
 $$ 
-For H1, the hypothesized inverted U is supported if $\hat{\beta}_1 > 0$ and $\hat{\beta}_2 < 0$. Likewise, the hypothesized U-shape for H3 is supported if $\hat{\beta}_1 < 0$ and $\hat{\beta}_2 > 0$.
+
+For H1, the hypothesized inverted U-shape is partially supported if $\hat{\beta}_1 > 0$ and $\hat{\beta}_2 < 0$. Likewise, the hypothesized U-shape for H3 is partially supported if $\hat{\beta}_1 < 0$ and $\hat{\beta}_2 > 0$.
 
 ### Alternative Operationalization of the Independent Variable
 
 Our main specification reported above models the toxicity dose as the fraction of toxic posts in a feed where a post is either classified as being toxic or not. This operationalization is rooted in the platform literature and moderation applications which require dichotomization of toxicity to hide or remove harmful content. Given that we classify posts based on a continuous prediction, one could also argue that a feed’s toxicity dose can be described as its average toxicity. Hence, we will also consider specifications in which we model the toxicity dose as the average of all the posts’ toxicity scores that were presented in a participant’s feed.
 
-To better relate our results to the previous behavioral literature on brand safety (where sponsored content is usually paired with only one brand-safe or -unsafe organic post [@GrewalEtAl_2025] ), we will also analyze the effect of adjacent toxicity. Specifically, we will rerun the analyses specified above by averaging the toxicity scores (as predicted by the Perspective API) of the organic post beneath and above the sponsored post. Even though we do not manipulate these two posts explicitly, we expect enough variation due to the stimulus sampling.
+To better relate our results to the previous behavioral literature on brand safety (where sponsored content is usually paired with only one brand-safe or -unsafe organic post), we will also analyze the effect of adjacent toxicity. Specifically, we will rerun the analyses specified above by averaging the toxicity scores (as predicted by the Perspective API) of the organic post beneath and above the sponsored post. Even though we do not manipulate these two posts explicitly, we expect enough variation due to the stimulus sampling.
 
 ### Alternative Specification of the Dependent Variables
 
-Drawing from previous literature [@BernritterEtAl_2025; @GrewalEtAl_2025] we include alternative dependent variables to our Qualtrics Survey (see our Measures section). We will estimate how a feed’s toxicity dose affects these variables in line with the testing described above. Lottery signup (CTR), brand choice, and purchase intention have been discussed as financial brand safety metrics @BernritterEtAl_2025 and are thus tested against H2 and H3. Brand trust, commitment, attribution of toxicity, ad involvement, and mood are proposed as transmitting the effect of unsafe content on brand safety, we therefore explore them as upstream dependent variables as well. 
+Drawing from previous literature [@BernritterEtAl_2025; @GrewalEtAl_2025] we include alternative dependent variables to our Qualtrics Survey (see our Measures section). We will estimate how a feed’s toxicity dose affects these variables in line with the testing described above. Lottery signup (CTR), brand choice, and purchase intention have been discussed as financial brand safety metrics [@BernritterEtAl_2025] and are thus tested against H2 and H3. Brand trust, commitment, attribution of toxicity, ad involvement, and mood are proposed as transmitting the effect of unsafe content on brand safety, we therefore explore them as upstream dependent variables as well. 
 
 ### Alternative specification of additional covariates
 
@@ -910,10 +920,12 @@ runs <- 1000
 
 The two-lines test has no closed-form power formula, so we estimate power by simulation following @Lakens_2022. For each sample size $N \in [200, 400, ..., 4800, 5000]$, we
 
-1. generate a dataset with two assumed inverted-U data-generating processes representing for small and medium effect sizes,
+1. generate a dataset with two assumed inverted U-shaped data-generating processes representing for small and medium effect sizes,
 2. apply the two-lines test to the simulated data,
 3. flag a success when both slopes pass a one-sided test ($\alpha = .05$; $b_1 > 0$ and $b_2 < 0$), and
 4. repeat the procedure `r format(big.mark = ",", runs)` times.
+
+Power is then estimated as one minus the proportion of inverted U-shaped simulations that the test failed to flag as successes, i.e., the false negative rate.
 
 We report power for two effect sizes — small ($d = 0.2$) and medium ($d = 0.5$) — for each of the two primary outcomes (ad dwell time and brand attitudes). We express effect sizes as Cohen's $d$, where $d$ is the expected uplift at peak toxicity (a 50% toxic feed) relative to the standard deviation of that outcome observed in the pilot.
 
@@ -971,7 +983,7 @@ power_dwell <- rbindlist(list(
 fwrite(x = power_dwell, file = "../../data/simulations/power_sim_dwell_time.csv")
 ```
 
-To calculate required sample size for the brnd attitudes measure, we apply the same d = 0.5 / d = 0.2 convention. The pilot mean is `r round(b0_brand, 2)` on a 1–7 scale (SD: `r round(sigma_brand, 2)`). A medium effect raises peak-condition attitude by `r round(0.25 * b1_brand_m, 2)` points; a small effect by `r round(0.25 * b1_brand_s, 2)` points.
+To calculate required sample size for the brand attitudes measure, we apply the same d = 0.5 / d = 0.2 convention. The pilot mean is `r round(b0_brand, 2)` on a 1–7 scale (SD: `r round(sigma_brand, 2)`). A medium effect raises peak-condition attitude by `r round(0.25 * b1_brand_m, 2)` points; a small effect by `r round(0.25 * b1_brand_s, 2)` points.
 
 ```{r power-brand}
 #| eval: !expr "!power_sim_att_exists"
@@ -1000,7 +1012,7 @@ n_recruit   <- ceiling(sample_size / (pilot[scroll_depth >= 10, .N] / pilot[, .N
 ```
 
 The power curves (@fig-power) indicate that detecting a small effect ($d = 0.2$) with 80% power requires approximately `r format(sample_size, big.mark = ",")` exposed observations. Because not all recruited participants scroll far enough to encounter the ad (`r apa(100 * pilot[scroll_depth < 10, .N] / pilot[, .N], decimals = 1)`% of pilot participants did not reach position 10) we will recruit 
-$(1+$ `r apa(pilot[scroll_depth < 10, .N] / pilot[, .N], decimals = 2)` $) \cdot 4,000  \approx 5,000$ participants in total to achieve the target exposed sample.
+$(1+$ `r apa(pilot[scroll_depth < 10, .N] / pilot[, .N], decimals = 2)`$) \cdot 4,000  \approx 5,000$ participants in total to achieve the target exposed sample.
 
 :::: {.place arguments='top, scope: "parent", float: true'}
 
@@ -1032,8 +1044,7 @@ power_plot(power_brand, "Brand attitudes")
 
 ## Recruitment
 
-We recruit N participants via Prolific Academic with a 99% approval rate and current country of residence US.
-
+We recruit N participants via Prolific Academic, requiring a 99% approval rate, current country of residence in the US or Canada, and English as a first language.
 
 ## Exclusion Criteria
 
